@@ -20,7 +20,7 @@
 
 [内容凭证](https://contentcredentials.org)（C2PA 标准）是相机、编辑软件、AI 图像生成器可以附加在文件上的签名记录。provenance-check 读取它们并告诉你（报告界面目前是英文的）：
 
-- **签名之后文件有没有变过。** “完好”，或者“凭证与这个文件不符”，以及变了什么（画面、凭证的一部分、签名）。
+- **签名之后文件有没有变过。** “完好”，或者“凭证与这个文件不符”，以及变了什么（画面、凭证的一部分、签名，或者它由之做成的文件的凭证）。
 - **谁签的名**，以及这个签名者能不能被确认（见下文“信任”）。
 - **有没有用到 AI**——按凭证里的说法：由生成式 AI 制作、用 AI 编辑过、或者由 AI 生成的文件做成；或者凭证对 AI 只字未提。
 - **怎么做出来、怎么改的**：来源（相机、生成式 AI、截图……）、工具、编辑（裁剪、调色……），以及它由哪些文件做成，每个文件各自的签名者。
@@ -84,11 +84,13 @@ npm run build
 
 ## 其他工具
 
-也有其他浏览器扩展能读内容凭证，比如“C2PA Content Credentials”、Digimarc 的（开源，基于较早的 C2PA-JS 库）、Adobe 的 Content Authenticity；[contentcredentials.org/verify](https://contentcredentials.org/verify) 可以检查你上传的文件。provenance-check 适合这样的人：希望在本地检查，希望结果用大白话说清楚、也说清楚局限，希望代码少到自己能读完——MIT 许可，在参考实现之上只有几百行。
+也有其他浏览器扩展能读内容凭证，比如“C2PA Content Credentials”、Digimarc 的（开源，基于较早的 C2PA-JS 库）、Adobe 的 Content Authenticity；[contentcredentials.org/verify](https://contentcredentials.org/verify) 可以检查你上传的文件。provenance-check 适合这样的人：希望在本地检查，希望结果用大白话说清楚、也说清楚局限，希望代码少到自己能读完——MIT 许可，在参考实现之上大约 900 行代码（不含注释）。
 
 ## 状态
 
-0.6，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
+1.0（[更新记录](CHANGELOG.md)）。1.x 期间保持稳定的部分（命令行的选项、退出码和 JSON，以及各种结论）见 [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)（英文），供脚本和 AI 助手依赖。还没做的：C2PA 信任列表、Firefox。
+
+测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的；测试里还会由它们派生出：编辑历史被改过的、被截断的、名不副实的文件。构建出的扩展会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、不该获取的地址、弹窗，以及读取凭证的 worker 没有发出任何请求（另有一个去掉防护的对照版本，必须能被看到发出请求）。每个发布用的 zip 在发布前都会解压后用同样的方式检查；zip 可复现：GitHub 在 Linux 上构建的和在 Windows 上构建的逐字节一致。经过两次独立审查（读取器和命令行；扩展和发布流程），发现的问题都已修复并有测试，见 [POLISH_LOG.md](POLISH_LOG.md)。
 
 ## 开发
 

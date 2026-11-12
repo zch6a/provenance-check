@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.0 — 2026-11-12
+
+The first stable release. What 1.x keeps stable (the command line's options, exit codes and `--json` schema 1, the
+report's fields, the verdicts and AI levels, and that reading never makes a network request) is written down in
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), and a test checks that document against what the command line
+gives.
+
+- Every release zip is now unzipped and loaded into Chrome, and checked end to end, before it is published; a
+  runner without Chrome fails the release instead of skipping the check.
+- README: what is tested, including the two independent reviews and the reproducible zips (the v0.5.0 zip GitHub
+  built on Linux has the same SHA-256 as one built on Windows); the size of the code base corrected (about 900
+  lines of code, not "a few hundred").
+
+Not in 1.0: the C2PA trust list (every signer shows as "not verified"), Firefox.
+
 ## 0.6.0 — 2026-11-12
 
 Polishing round 4: an independent review of the extension side found twelve problems. All fixed or answered.

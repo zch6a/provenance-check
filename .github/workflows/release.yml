@@ -27,6 +27,15 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run zip
+      # What is published is the zip, so the zip itself (unzipped, as a person would) is loaded into Chrome and checked
+      # end to end; a runner without Chrome fails here instead of skipping.
+      - name: The zip itself works in Chrome
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/unzipped"
+          unzip -q "release/provenance-check-${GITHUB_REF_NAME#v}.zip" -d "$RUNNER_TEMP/unzipped"
+          DIST="$RUNNER_TEMP/unzipped" node scripts/extension-e2e.mjs | tee "$RUNNER_TEMP/e2e.log"
+          ! grep -q '^skip:' "$RUNNER_TEMP/e2e.log"
       - name: Release notes from the CHANGELOG
         run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > release/notes.md
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -221,3 +221,48 @@ findings; all fixed or answered.
   menu cannot be clicked there); the unknown-id path is.
 
 **Tests**: 63 (was 57); one runs only on Linux and macOS.
+
+## Round 5 — 2026-11-12 (1.0.0): the last round of the first cycle
+
+- **The file people download, tested.** Until now the Chrome check ran on `dist/`; what is published is the zip.
+  Unzipped the 0.6.0 zip and ran the whole Chrome check on it (all passed), and made that a step of the release:
+  every zip is unpacked and checked in Chrome before the publish job gets it, and a runner without Chrome fails
+  the release instead of skipping (`test/workflows.test.js` keeps the step and its order). The 0.6.0 release ran
+  the new two-job workflow for real: build 36 s with a read-only token, publish 9 s.
+- **`docs/COMPATIBILITY.md`**: what 1.x keeps (the command line's options and exit codes, `--json` schema 1 and the
+  report's fields, the five verdicts, the AI levels, that reading never makes a request, the permissions) and what
+  it does not (the words, `technical.codes`, layouts, the list of formats, limits). `test/compatibility.test.js`
+  checks the document against the command line's real output: a report field added without the document, or a
+  promised one missing, fails. Shipped in the package.
+- **Every README claim read against the code.** Two were wrong: "a few hundred lines on top of the reference
+  library" (counted: about 920 lines of code without comments, now said so), and "what changed" left out the
+  credentials of a file it was made from (round 2's finding). The Status section now says what is tested, the two
+  reviews, and the reproducible zips; both languages.
+- Not in 1.0, and said so in the README and the changelog: the C2PA trust list (needs the owner's OK to download),
+  Firefox (needs a real Firefox to test).
+
+**Tests**: 66 (was 63); one runs only on Linux and macOS. **First cycle complete for provenance-check: 5/5.**
+
+## Summary
+
+provenance-check reads an image's Content Credentials on the user's computer, with the C2PA reference library, and
+says in plain words what they state and what that does not prove: in Chrome and Edge (right-click), on the command
+line, and through an Agent Skill.
+
+What mattered most, in hindsight:
+- **Saying no more than the credentials do.** "Intact" is not "made by the named signer"; no credentials proves
+  nothing; only IPTC's "trained algorithmic" types are generative AI; a reader failure is not a verdict.
+- **Nothing leaves the computer, proven.** A network guard in the reader's worker, because a CAWG identity
+  statement makes the library contact an address chosen by the file's maker and no setting stops it; a real-Chrome
+  test that watches the worker, with a control build that must be seen making the request.
+- **Two reviews by someone who had not written it** found what my own tests could not, because the tests shared my
+  assumptions: a field name the library never writes (so altered history read "intact"), a loose regex, error paths
+  that ended in a false verdict or a page stuck on "Checking…", a release token within reach of dependency code.
+- **Text from files is hostile**: HTML, bidi overrides, zero-width look-alikes, terminal escapes.
+
+Rounds: development (0.1, 18 tests) → 1 first review, real Chrome, the network guard (0.2, 33) → Agent Skill and a
+command line (0.3, 42) → 2 review of the reader and the command line (0.4, 51) → 3 release zip, keyboard access
+(0.5, 57) → 4 review of the extension and the release, reading files in parts (0.6, 63) → 5 the zip itself tested,
+compatibility promise, claims checked (1.0, 66).
+
+Still open: the C2PA trust list; Firefox; identity statements verified (would mean contacting their issuer).

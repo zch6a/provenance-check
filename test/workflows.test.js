@@ -33,6 +33,10 @@ test("release: write access only in the job that runs no project code", () => {
   assert.match(build, /persist-credentials: false/, "the checkout keeps no token");
   assert.match(build, /npm ci --ignore-scripts/);
   assert.match(build, /npm test/, "what is released is what was tested");
+  assert.match(build, /unzip -q "release\/provenance-check-/, "the zip itself is unpacked");
+  assert.match(build, /DIST="\$RUNNER_TEMP\/unzipped" node scripts\/extension-e2e\.mjs/, "and checked in Chrome");
+  assert.match(build, /! grep -q '\^skip:'/, "a missing Chrome fails the release instead of skipping");
+  assert.ok(build.indexOf("extension-e2e") < build.indexOf("upload-artifact"), "before it is handed to the publish job");
   assert.match(publish, /contents: write/);
   assert.match(publish, /needs: build/);
   assert.doesNotMatch(publish, /checkout|npm |node /, "the publish job runs nothing of the project or its dependencies");

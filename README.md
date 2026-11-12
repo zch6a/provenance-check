@@ -24,7 +24,8 @@ it, what was edited, and whether the file changed since it was signed. In plain 
 editors and AI image generators can attach to a file. provenance-check reads them and says:
 
 - **Whether the file changed since it was signed.** "Intact", or "These Content Credentials do not match this
-  file", with what changed (the picture, part of the credentials, the signature).
+  file", with what changed (the picture, part of the credentials, the signature, or the credentials of a file it was
+  made from).
 - **Who signed it**, and whether that signer can be confirmed (see [trust](#what-it-does-not-do-yet)).
 - **Whether AI was involved**, as the credentials state it: made by generative AI, edited with it, or made
   from a file that was; or that they say nothing about AI.
@@ -143,16 +144,26 @@ Other browser extensions read Content Credentials, among them "C2PA Content Cred
 source, on the older C2PA-JS library) and Adobe's Content Authenticity, and
 [contentcredentials.org/verify](https://contentcredentials.org/verify) checks files you upload. provenance-check
 is for people who want the check done locally, the result in plain words with its limits, and a small
-open-source code base they can read: MIT, a few hundred lines on top of the reference library.
+open-source code base they can read: MIT, about 900 lines of code (without comments) on top of the reference
+  library.
 
 ## Status
 
-0.6, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
-certificate (`test/fixtures`, made by `scripts/make-fixtures.mjs`): an AI-generated image, a camera image, an
-edit with its history, a tampered copy, one without credentials, one with credentials stored elsewhere, one with
-HTML in its texts, two with identity statements. The built extension is also loaded into a real Chrome (a fresh
-profile, no network) and checked end to end: a local file, a `data:` image, the permission question, the popup, and
-the reader's worker making no request. The report page is checked in a browser with the real WebAssembly reader.
+1.0 ([changes](CHANGELOG.md)). What stays stable through 1.x, for scripts and assistants (the command line's
+options, exit codes and JSON, the verdicts): [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). Not done yet: the
+C2PA trust list, Firefox.
+
+Tested with synthetic images signed for the tests by the reference library with a test-only certificate
+(`test/fixtures`, made by `scripts/make-fixtures.mjs`): an AI-generated image, a camera image, an edit with its
+history, a tampered copy, one without credentials, one with credentials stored elsewhere, one with HTML in its
+texts, two with identity statements; and, made from them in the tests, an edit whose history was altered, files
+cut short, files that are not what their name says. The built extension is loaded into a real Chrome (a fresh
+profile, no network) and checked end to end: a local file, a `data:` image, the permission question, addresses it
+must not fetch, the popup, and the reader's worker making no request (with a control build that must be seen
+making one). Every release zip is unzipped and checked the same way before it is published, and the zips are
+reproducible: the one GitHub builds on Linux is byte-identical to one built on Windows. Two independent reviews
+(of the reader and the command line, and of the extension and the release), whose findings are fixed with tests:
+[POLISH_LOG.md](POLISH_LOG.md).
 
 ## Develop
 
