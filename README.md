@@ -83,7 +83,9 @@ into theirs.
 
 ## Install
 
-Not in the Chrome Web Store yet. From the source (Node 18.3 or later):
+Not in the Chrome Web Store yet. From a release: download `provenance-check-<version>.zip` from
+[Releases](https://github.com/zch6a/provenance-check/releases) (from 0.5.0 on) and unzip it. Or from the source
+(Node 18.3 or later):
 
 ```bash
 git clone https://github.com/zch6a/provenance-check
@@ -93,7 +95,7 @@ npm run build
 ```
 
 Then open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose **Load unpacked**
-and pick the `dist` folder. Chrome and Edge 116 or later.
+and pick the unzipped folder (or `dist`). Chrome and Edge 116 or later.
 
 ## Private by design
 
@@ -139,7 +141,7 @@ open-source code base they can read: MIT, a few hundred lines on top of the refe
 
 ## Status
 
-0.4, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
+0.5, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
 certificate (`test/fixtures`, made by `scripts/make-fixtures.mjs`): an AI-generated image, a camera image, an
 edit with its history, a tampered copy, one without credentials, one with credentials stored elsewhere, one with
 HTML in its texts, two with identity statements. The built extension is also loaded into a real Chrome (a fresh

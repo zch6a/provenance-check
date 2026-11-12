@@ -145,3 +145,27 @@ and every fix has a test that fails on 0.3.0 (checked by running the new tests w
 **Open**
 - Trust lists (needs the owner's OK to download the C2PA trust list).
 - Firefox; a release zip; streaming for large video and audio instead of reading them whole.
+
+## Round 3 — 2026-11-12 (0.5.0)
+
+- **Function / experience**: installing meant cloning, `npm ci` and a build. Now each version tag makes a GitHub
+  release with the built extension as a zip (`.github/workflows/release.yml`: tests, build, `scripts/zip.mjs`, the
+  version's CHANGELOG section as notes, `gh release upload --clobber` when re-run; a tag that is not the package
+  version fails). The ZIP writer is 80 lines on `node:zlib`, no dependency; its own CRC-32 because `zlib.crc32` only
+  exists from Node 20.15 and the tests run on 18. Reproducible: sorted entries, the earliest DOS date, no extra
+  fields; already-compressed files (PNG, WASM) are stored. Checked by Windows' own Expand-Archive (14 files, the WASM
+  byte-identical) and in the tests by a small reader with `inflateRawSync`, CRCs against zlib's where it has one,
+  and `unzip -t` where the system has it (Linux, macOS CI).
+- **Accessibility, found by looking for it**: on the "Check a file" page, Tab reached nothing. The file input had the
+  `hidden` attribute inside its label, and a label cannot take focus: a keyboard-only user could not check a local
+  file at all. Confirmed in a browser (no focusable element), fixed with a visually-hidden input and a focus ring on
+  the button (checked: Tab lands on the input, the outline shows), and `test/pages.test.js` (fails on the old page):
+  the input stays in the tab order; every page has a language, a title and a top heading; the report region is
+  announced when it changes.
+- **Firefox: not done, on purpose.** It needs a different background setup (`background.scripts` instead of a
+  service worker), a gecko id and testing in a real Firefox; none is installed here, and installing one is a
+  download that needs the owner's OK. A Firefox build that nobody ran would be a claim the README cannot make.
+- **Still open**: the C2PA trust list (needs the owner's OK to download), Firefox, reading big video and audio in
+  parts instead of whole.
+
+**Tests**: 57 (was 51); one runs only on Linux and macOS.

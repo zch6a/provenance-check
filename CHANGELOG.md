@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 — 2026-11-12
+
+Polishing round 3.
+
+- **A release zip**: every version tag builds the extension and attaches `provenance-check-<version>.zip` to its
+  GitHub release, so it can be loaded without Node or a build. Made by `scripts/zip.mjs`, a small ZIP writer with no
+  dependencies, reproducible (sorted entries, a fixed timestamp: the same build gives the same bytes); the release
+  notes are the version's CHANGELOG section, and the release refuses a tag that is not the package version.
+- **The "Check a file" page could not be used with the keyboard**: its file input was `hidden` inside a label,
+  which left the page with no focusable element at all. The input is now only visually hidden, and the button shows
+  a focus ring.
+
 ## 0.4.0 — 2026-11-12
 
 Polishing round 2: an independent review of 0.3.0 found eight problems, three of them in the report itself. All

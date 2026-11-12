@@ -53,7 +53,7 @@ provenance-check 自带一个 Agent Skill（技能）。在 Claude Code 里：
 
 ## 安装
 
-还没有上架 Chrome 应用商店。从源码安装（需要 Node 18.3 或更新版本）：
+还没有上架 Chrome 应用商店。从发布版安装：在 [Releases](https://github.com/zch6a/provenance-check/releases) 下载 `provenance-check-<版本>.zip`（0.5.0 起）并解压。或者从源码安装（需要 Node 18.3 或更新版本）：
 
 ```bash
 git clone https://github.com/zch6a/provenance-check
@@ -62,7 +62,7 @@ npm ci
 npm run build
 ```
 
-然后打开 `chrome://extensions`（或 `edge://extensions`），打开 **开发者模式**，选 **加载已解压的扩展程序**，选择 `dist` 文件夹。需要 Chrome 或 Edge 116 及以上。
+然后打开 `chrome://extensions`（或 `edge://extensions`），打开 **开发者模式**，选 **加载已解压的扩展程序**，选择解压出来的文件夹（或 `dist`）。需要 Chrome 或 Edge 116 及以上。
 
 ## 隐私是设计出来的
 
@@ -87,7 +87,7 @@ npm run build
 
 ## 状态
 
-0.4，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
+0.5，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
 
 ## 开发
 

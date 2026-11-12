@@ -1,6 +1,6 @@
 {
   "name": "provenance-check",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Check an image's Content Credentials (C2PA) on your computer: who signed it, with what, whether AI was used, and whether it changed since. A browser extension and a command line. Nothing is uploaded.",
   "keywords": [
@@ -35,7 +35,8 @@
     "build": "node scripts/build.mjs",
     "test": "node --test",
     "check": "tsc --noEmit -p jsconfig.json",
-    "fixtures": "node scripts/make-fixtures.mjs"
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "zip": "node scripts/zip.mjs"
   },
   "dependencies": {
     "@contentauth/c2pa-wasm": "0.13.4",
