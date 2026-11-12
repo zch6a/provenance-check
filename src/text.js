@@ -8,10 +8,10 @@ import { clean } from "./render.js";
 
 const BADGE = { trusted: "✓", valid: "✓", invalid: "✗", remote: "↗", none: "–" };
 
-/** @param {string} text */
-function safe(text) {
+/** Text from a file or from credentials, safe to print in a terminal. @param {string} text */
+export function safe(text) {
   // eslint-disable-next-line no-control-regex
-  return clean(text).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, "�").replace(/\n/g, " ");
+  return clean(text).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, "\uFFFD").replace(/\n/g, " ");
 }
 
 /**

@@ -1,10 +1,18 @@
 {
   "name": "provenance-check",
   "description": "Read an image's Content Credentials (C2PA) on your computer and explain them honestly: who signed it, whether AI was involved, what was edited, whether it changed since. Nothing is uploaded.",
-  "version": "0.3.0",
-  "author": { "name": "zch6a" },
+  "version": "0.4.0",
+  "author": {
+    "name": "zch6a"
+  },
   "homepage": "https://github.com/zch6a/provenance-check",
   "repository": "https://github.com/zch6a/provenance-check",
   "license": "MIT",
-  "keywords": ["c2pa", "content-credentials", "provenance", "ai-generated", "claude-code"]
+  "keywords": [
+    "c2pa",
+    "content-credentials",
+    "provenance",
+    "ai-generated",
+    "claude-code"
+  ]
 }

@@ -7,8 +7,8 @@ import { test } from "node:test";
 import { clean } from "../src/render.js";
 
 test("characters that reorder text are made visible, so a name cannot pretend to be another", () => {
-  assert.equal(clean("holiday‮gpj.exe"), "holiday�gpj.exe");
-  assert.equal(clean("Adobe⁧ Photoshop⁩"), "Adobe� Photoshop�");
+  assert.equal(clean("holiday\u202Egpj.exe"), "holiday�gpj.exe");
+  assert.equal(clean("Adobe\u2067 Photoshop\u2069"), "Adobe� Photoshop�");
   assert.equal(clean("normal text, ünïcödé, 中文"), "normal text, ünïcödé, 中文");
 });
 

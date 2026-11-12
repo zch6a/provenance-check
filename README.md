@@ -41,7 +41,7 @@ editors and AI image generators can attach to a file. provenance-check reads the
   opens in a new tab. The first time for a site, the browser asks you to let provenance-check fetch images from
   it (or from all sites).
 - To check a file on your computer, click the toolbar icon, then **Check a file…**, and drop the file in.
-- On the command line (Node 18 or later), the same reader and the same report, in plain text or `--json`:
+- On the command line (Node 18.3 or later), the same reader and the same report, in plain text or `--json`:
 
   ```bash
   npx -y github:zch6a/provenance-check photo.jpg
@@ -64,7 +64,7 @@ editors and AI image generators can attach to a file. provenance-check reads the
   ```
 
   Local files only, several at once. Exit code 0 when checked, 1 when a file's credentials do not match it, 2 when
-  a file could not be checked.
+  a file could not be checked (2 wins over 1; `--json` has the result of each file).
 
 ## Ask your AI assistant
 
@@ -83,7 +83,7 @@ into theirs.
 
 ## Install
 
-Not in the Chrome Web Store yet. From the source (Node 18 or later):
+Not in the Chrome Web Store yet. From the source (Node 18.3 or later):
 
 ```bash
 git clone https://github.com/zch6a/provenance-check
@@ -100,7 +100,8 @@ and pick the `dist` folder. Chrome and Edge 116 or later.
 - The image is read **on your computer**, by the C2PA reference library ([c2pa-rs](https://github.com/contentauth/c2pa-rs),
   compiled to WebAssembly) that ships inside the extension. Nothing is uploaded, no account, no telemetry.
 - The only request it makes is downloading the image once more, **without your cookies**, from the site it came
-  from, and only after you allowed that site. That copy is what is checked and shown (a site can send different
+  from (and from where that site redirects the request, if it does: the report names the host the copy came
+  from), and only after you allowed that site. That copy is what is checked and shown (a site can send different
   visitors different files).
 - The reader runs in a worker that **cannot reach the network**. Some credentials carry an identity statement
   (CAWG) whose issuer the C2PA library would look up on its own, at an address the file's maker chose: that would
@@ -138,7 +139,7 @@ open-source code base they can read: MIT, a few hundred lines on top of the refe
 
 ## Status
 
-0.3, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
+0.4, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
 certificate (`test/fixtures`, made by `scripts/make-fixtures.mjs`): an AI-generated image, a camera image, an
 edit with its history, a tampered copy, one without credentials, one with credentials stored elsewhere, one with
 HTML in its texts, two with identity statements. The built extension is also loaded into a real Chrome (a fresh
@@ -149,7 +150,8 @@ the reader's worker making no request. The report page is checked in a browser w
 
 ```bash
 npm ci
-npm test            # the reports for the test images, privacy (nothing fetched), the built extension
+npm test            # the reports for the test images, privacy (nothing fetched), the command line, the built
+                    # extension, the package contents, the Agent Skill
 npm run check       # type-check the JavaScript (JSDoc types, tsc)
 npm run build       # into dist/
 node scripts/serve.mjs   # the report page outside the extension: http://localhost:5180/dist/report.html?src=/test/fixtures/edited.jpg
@@ -157,6 +159,9 @@ node scripts/serve.mjs   # the report page outside the extension: http://localho
 
 `npm run fixtures` remakes the test images (`scripts/cose.mjs` signs them; the library's WebAssembly build
 expects the signer to return a complete COSE signature). `scripts/screenshot.mjs` takes the screenshots above.
+
+How to contribute (and what must not change): [CONTRIBUTING.md](CONTRIBUTING.md). The threat model and how to
+report a vulnerability: [SECURITY.md](SECURITY.md).
 
 ## License
 

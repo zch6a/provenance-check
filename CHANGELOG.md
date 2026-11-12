@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4.0 — 2026-11-12
+
+Polishing round 2: an independent review of 0.3.0 found eight problems, three of them in the report itself. All
+fixed, each with a test that fails on 0.3.0.
+
+- **The credentials of the file an image was made from, altered, read as "intact".** The reader reports problems
+  with an ingredient under `ingredientAssertionURI`; the code looked for a `uri` field that the library never
+  writes (the unit test built its fake result the same wrong way), and judged the verdict on the image's own
+  signature only. Writing a different signer's name into the embedded history of `edited.jpg` gave "Content
+  Credentials intact" while the library said Invalid. Now any integrity failure in an ingredient makes the report
+  invalid, says which file it was made from is affected, and appears in that history entry.
+- **Credentials stored at an address containing "manifests" read as "No Content Credentials"** on the command line:
+  the "not found" match was loose (`no.*manifest`) and ran before the remote address was read. Now the library's
+  exact "not found" errors only, as c2pa-web does.
+- **A broken file without C2PA was called "damaged Content Credentials"** (a truncated PNG, a text file named .gif):
+  damaged now needs a C2PA container in the bytes; anything else is "could not read this file", in the extension
+  and on the command line (exit 2).
+- Command line: a file that exists but cannot be opened (locked, no permission) is an error for that file instead
+  of a crash; the file name in an error line goes through the same terminal cleaning as credential text; `--json`
+  escapes C1 controls and invisible characters; empty and 1–3-byte files say so; AVI and `.c2pa` sidecars are
+  recognised, and a file whose type the bytes do not settle is left to the library instead of refused; the size
+  limit is checked again after reading; half the memory for a large file (no second copy).
+- Text from credentials: zero-width characters (look-alikes such as "pay…pal"), line and paragraph separators and
+  Unicode tag characters are shown as "�" too; long text is cut on whole characters (an emoji at the cut left half
+  of itself).
+- The report says which host the checked copy came from after redirects. Node 18.3 or later (`parseArgs`).
+- Test files kept real right-to-left override characters (from earlier rounds); now written as escapes.
+- `CONTRIBUTING.md`, `SECURITY.md`, and a test that the installed package holds the command line and everything it
+  imports.
+
 ## 0.3.0 — 2026-11-12
 
 - **A command line**: `npx -y github:zch6a/provenance-check photo.jpg` (or `--json`). The same reader, settings,

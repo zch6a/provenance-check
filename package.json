@@ -1,6 +1,6 @@
 {
   "name": "provenance-check",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Check an image's Content Credentials (C2PA) on your computer: who signed it, with what, whether AI was used, and whether it changed since. A browser extension and a command line. Nothing is uploaded.",
   "keywords": [
@@ -29,7 +29,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=18.3"
   },
   "scripts": {
     "build": "node scripts/build.mjs",

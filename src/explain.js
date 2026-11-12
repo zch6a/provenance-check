@@ -22,7 +22,10 @@
  *   label?: string}} Manifest
  * @typedef {{success?: Status[], informational?: Status[], failure?: Status[]}} Results
  * @typedef {{active_manifest?: string, manifests?: Record<string, Manifest>, validation_status?: Status[], validation_state?: string,
- *   validation_results?: {activeManifest?: Results, ingredientDeltas?: {uri?: string, validationDeltas?: Results}[]}}} ManifestStore
+ *   validation_results?: {activeManifest?: Results, ingredientDeltas?: IngredientDelta[]}}} ManifestStore
+ * @typedef {{ingredientAssertionURI?: string, uri?: string, validationDeltas?: Results}} IngredientDelta what the reader
+ *   found about one ingredient while validating the file: c2pa-rs names the ingredient's assertion in
+ *   `ingredientAssertionURI` (`uri` is kept for older shapes)
  * @typedef {"trusted" | "valid" | "invalid" | "remote" | "none"} Verdict
  * @typedef {{level: "generated" | "partly" | "not-stated", words: string}} AiStatement
  * @typedef {{title: string, how: string, signer: string | null, hasCredentials: boolean, problems: string[], recorded: string[]}} HistoryItem
@@ -122,6 +125,8 @@ const PROBLEMS = /** @type {Record<string, string>} */ ({
   "timeStamp.mismatch": "The recorded signing time does not match.",
   "timeStamp.outsideValidity": "The signing time is outside the timestamp certificate's validity.",
   "ingredient.manifest.missing": "Credentials of a file it was made from are missing.",
+  "ingredient.manifest.mismatch": "The credentials of a file it was made from were changed after it was used.",
+  "ingredient.claimSignature.mismatch": "The signature of a file it was made from does not match its credentials.",
   "ingredient.hashedURI.mismatch": "A file it was made from changed after it was used.",
 });
 
@@ -178,11 +183,20 @@ export function explain(store, extra = {}) {
   const all = failuresOf(store);
   const integrity = all.filter((s) => kindOf(s.code) === "integrity");
   const identity = all.filter((s) => kindOf(s.code) === "identity");
+  // What the reader found about the files it was made from: the file's own signature can be fine while the embedded
+  // credentials of an ingredient were altered (a different signer's name put into its history, say). That is part of
+  // the credentials changing after signing, so it makes the whole report invalid.
+  const ingredientIntegrity = ingredientFailures(store).filter((f) => kindOf(f.status.code) === "integrity");
+  // Anything else the library's overall list holds that is about integrity (a shape this code does not know yet).
+  const known = new Set([...all, ...ingredientIntegrity.map((f) => f.status)].map((s) => s.code));
+  const otherIntegrity = (store.validation_status ?? []).filter((s) => kindOf(s.code) === "integrity" && !known.has(s.code));
   const state = store.validation_state ?? (integrity.length ? "Invalid" : "Valid");
-  // The library calls a file "Invalid" when any check failed; only a failure about the file or its signature makes
-  // it "invalid" here. (An "Invalid" state with no failure listed at all stays invalid: better safe.)
+  // The library calls a file "Invalid" when any check failed; only a failure about the file, its signature or the
+  // credentials of what it was made from makes it "invalid" here. (An "Invalid" state with no failure listed at all
+  // stays invalid: better safe.)
+  const broken = integrity.length + ingredientIntegrity.length + otherIntegrity.length;
   /** @type {Verdict} */
-  const verdict = integrity.length || (state === "Invalid" && !all.length) ? "invalid" : state === "Trusted" ? "trusted" : "valid";
+  const verdict = broken || (state === "Invalid" && !all.length) ? "invalid" : state === "Trusted" ? "trusted" : "valid";
   const signer = manifest.signature_info?.common_name || manifest.signature_info?.issuer || null;
   const issuer = manifest.signature_info?.issuer && manifest.signature_info.issuer !== signer ? manifest.signature_info.issuer : null;
   const time = manifest.signature_info?.time ? new Date(manifest.signature_info.time) : null;
@@ -234,6 +248,8 @@ export function explain(store, extra = {}) {
     history: (manifest.ingredients ?? []).map((ing) => historyItem(store, ing)),
     problems: unique([
       ...integrity.map((s) => PROBLEMS[s.code] ?? `${s.explanation ?? s.code} (${s.code})`),
+      ...ingredientIntegrity.map((f) => `In the file it was made from (${f.title}): ${ingredientWords(f.status)}`),
+      ...otherIntegrity.map((s) => PROBLEMS[s.code] ?? `${s.explanation ?? s.code} (${s.code})`),
       ...identity.map((s) => `The identity statement attached to it does not check out: ${s.explanation ?? s.code} (${s.code})`),
     ]),
     notes,
@@ -312,19 +328,47 @@ function ingredientsMadeByAi(store, m, seen) {
  */
 function historyItem(store, ing) {
   const child = ing.active_manifest ? store.manifests?.[ing.active_manifest] : undefined;
-  const words = (/** @type {Status} */ s) => PROBLEMS[s.code] ?? s.explanation ?? s.code;
-  const deltas = (store.validation_results?.ingredientDeltas ?? [])
-    .filter((d) => ing.label && store.active_manifest && d.uri?.includes(store.active_manifest) && d.uri.endsWith(`/${ing.label}`))
-    .flatMap((d) => d.validationDeltas?.failure ?? []);
   const recorded = (ing.validation_results?.activeManifest?.failure ?? ing.validation_status ?? []);
   return {
     title: ing.title || "an untitled file",
     how: ing.relationship === "parentOf" ? "edited from" : ing.relationship === "inputTo" ? "used as input" : "includes",
     signer: child?.signature_info?.common_name || child?.signature_info?.issuer || null,
     hasCredentials: Boolean(child),
-    problems: unique(deltas.filter((s) => kindOf(s.code) !== "trust").map(words)),
-    recorded: unique(recorded.filter((s) => kindOf(s.code) !== "trust").map(words)),
+    problems: unique(deltasFor(store, ing).filter((s) => kindOf(s.code) !== "trust").map(ingredientWords)),
+    recorded: unique(recorded.filter((s) => kindOf(s.code) !== "trust").map(ingredientWords)),
   };
+}
+
+/** A failure about an ingredient, in words. A bare claimSignature.mismatch there is the ingredient's signature. @param {Status} s */
+function ingredientWords(s) {
+  return PROBLEMS[s.code === "claimSignature.mismatch" ? "ingredient.claimSignature.mismatch" : s.code] ?? s.explanation ?? s.code;
+}
+
+/** Where the reader's findings about an ingredient point: its assertion in the active manifest. @param {IngredientDelta} d */
+const deltaUri = (d) => d.ingredientAssertionURI ?? d.uri ?? "";
+
+/** The reader's failures for one ingredient of the active manifest. @param {ManifestStore} store @param {Ingredient} ing */
+function deltasFor(store, ing) {
+  return (store.validation_results?.ingredientDeltas ?? [])
+    .filter((d) => ing.label && store.active_manifest && deltaUri(d).includes(store.active_manifest) && deltaUri(d).endsWith(`/${ing.label}`))
+    .flatMap((d) => d.validationDeltas?.failure ?? []);
+}
+
+/**
+ * Every failure the reader found about the active manifest's ingredients, with the ingredient's title. Deltas that
+ * match no listed ingredient still count (as "a file it was made from").
+ * @param {ManifestStore} store @returns {{title: string, status: Status}[]}
+ */
+function ingredientFailures(store) {
+  const active = store.active_manifest ? store.manifests?.[store.active_manifest] : undefined;
+  const out = [];
+  for (const d of store.validation_results?.ingredientDeltas ?? []) {
+    const uri = deltaUri(d);
+    if (store.active_manifest && !uri.includes(store.active_manifest)) continue;
+    const ing = (active?.ingredients ?? []).find((i) => i.label && uri.endsWith(`/${i.label}`));
+    for (const status of d.validationDeltas?.failure ?? []) out.push({ title: ing?.title || "an untitled file", status });
+  }
+  return out;
 }
 
 /** @template T @param {T[]} xs */

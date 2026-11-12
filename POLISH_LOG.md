@@ -87,3 +87,61 @@ in the other projects: an assistant cannot right-click an image, and the only wa
 - A slip of mine: to see whether `make-fixtures.mjs` takes `--help`, I ran it with `--help`; it does not, and
   started regenerating the test images (new signatures). Restored from git at once; it did show that the fixture
   script still works with the moved reader.
+
+## Round 2 — 2026-11-12 (0.4.0)
+
+An independent review of 0.3.0 (the reviewer had not written it; no network, the repository left untouched, only
+files derived from the synthetic fixtures in a temp folder) found eight problems. I reproduced each before fixing it,
+and every fix has a test that fails on 0.3.0 (checked by running the new tests with `src/` stashed).
+
+- **High: tampering with the history read as "intact".** Writing "Reuters Photo Desk." over "Example Test Studio"
+  inside the embedded manifest of the file `edited.jpg` was made from: the library says `Invalid`
+  (`ingredient.manifest.mismatch`, the ingredient's `claimSignature.mismatch`), the report said "Content Credentials
+  intact" and listed the ingredient as "signed by Reuters Photo Desk.". Two mistakes: the reader's ingredient results
+  are under `ingredientAssertionURI`, and the code read `uri`, a field c2pa-rs never writes. Round 1's unit test
+  built its fake result with the same wrong field, so it passed; and the verdict looked at the image's own signature
+  only. 7 of 240 random byte flips hit the same hole. Now ingredient integrity failures (and any integrity code in
+  the library's overall list that the code does not place) make the report invalid, are named with the file they
+  are about, and appear in that history entry. The unit test now uses the library's real field, and a test reads
+  the tampered file through the real library.
+- **High: remote credentials read as "none"** on the command line when their address contained "no…manifest"
+  (`cdn.canon.invalid/manifests/…`): the not-found check was a loose regex run before the remote URL was read. Now
+  only the library's exact `C2pa(JumbfNotFound)` / `C2pa(ManifestNotFound)`, as c2pa-web compares them.
+- **High: any unreadable file was "damaged Content Credentials"**, in the extension too: a text file named .gif, a
+  PNG cut to 90%, nine formats in all. Damaged now needs a C2PA container in the bytes; anything else is "could not
+  read this file" (exit 2).
+- **Medium**: a locked or unreadable file crashed the command line with a stack trace and exit 1 (which means "does
+  not match"), losing the other files' results; the file name in an error line was printed raw (escape sequences,
+  bells and right-to-left overrides reached the terminal, against what SECURITY.md said); AVI and `.c2pa` sidecars
+  were refused although the library reads them (it detects the format from the bytes; the type is a hint), and so
+  was every file whose type the bytes do not settle.
+- **Low**: zero-width characters, line and paragraph separators and tag characters were not hidden; `clean()` cut
+  at 400 UTF-16 units and could leave half an emoji; `--json` printed C1 controls and bidi characters raw (JSON only
+  escapes U+0000 to U+001F); the size limit was checked only before reading; a 240 MB file used ~8× its size in
+  memory (one copy removed); `parseArgs` needs Node 18.3, not 18; the report named the requested host even after a
+  redirect to another; exit code 2 hides 1 (now documented, `--json` has each result).
+- Not changed, and why: a file whose comment happens to contain the bytes "jumd…c2pa" is called damaged (crafted
+  files only); following redirects stays (CDNs redirect images), the report now names where the copy came from.
+- **Held up, per the reviewer**: the network guard is installed before the WebAssembly loads, and the glue calls
+  `fetch` at call time, so the guard is the one used (the did:web fixture logged two refused requests, none got
+  through; no fixture, truncation or fuzzed file made a request); 240 fuzzed signed files caused no crash, panic or
+  hang; HTML in credentials stays text; the README example output matches; the manifest asks for one permission.
+- **A pitfall of the editing tools, again**: writing `\u2028` and similar escapes into JavaScript, my editor turned
+  them into the real characters twice (a real U+2028 inside a regex literal broke `cli.js`; the new test file got
+  real bidi controls). A script now scans every source and test file and writes such characters back as escapes;
+  it also found real right-to-left overrides that had been sitting in `cli.test.js` and `render.test.js` since
+  earlier rounds (GitHub warns about them).
+- An existing privacy test caught a slip of mine: a comment I wrote held a web address, which the test forbids in
+  source; reworded.
+- **Docs and engineering**: `CONTRIBUTING.md` (what must not change: say only what the credentials state, nothing
+  leaves the computer, hostile text, synthetic test images), `SECURITY.md` (threat model; every claim checked against
+  the code, two corrected after the review), README links to both, the Develop section lists what `npm test`
+  covers; `test/package.test.js`: the installed package holds the command line and everything it imports (checked
+  to fail when the files list drops `src/`), and the WebAssembly reader is pinned to the version c2pa-web uses.
+  `npm audit` against the public registry: 0 vulnerabilities (the configured mirror has no audit endpoint).
+
+**Tests**: 51 (was 42); one runs only on Linux and macOS (a file without read permission).
+
+**Open**
+- Trust lists (needs the owner's OK to download the C2PA trust list).
+- Firefox; a release zip; streaming for large video and audio instead of reading them whole.

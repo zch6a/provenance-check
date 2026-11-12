@@ -184,10 +184,11 @@ test("ingredient problems: what the reader found, apart from what the editing to
         validation_results: { activeManifest: { failure: [{ code: "x.recorded", explanation: "Verified by Reuters: original photo" }] } } }] },
       orig: { signature_info: { common_name: "Camera" }, assertions: [] },
     },
-    validation_results: { activeManifest: { failure: [] }, ingredientDeltas: [{ uri: "self#jumbf=/c2pa/edit/c2pa.assertions/c2pa.ingredient.v3",
+    validation_results: { activeManifest: { failure: [] }, ingredientDeltas: [{ ingredientAssertionURI: "self#jumbf=/c2pa/edit/c2pa.assertions/c2pa.ingredient.v3",
       validationDeltas: { failure: [{ code: "assertion.dataHash.mismatch" }] } }] },
   });
   assert.deepEqual(r.history[0].problems, ["The picture changed after it was signed."]);
+  assert.equal(r.verdict, "invalid", "a file it was made from changed: the credentials as a whole do not hold");
   assert.deepEqual(r.history[0].recorded, ["Verified by Reuters: original photo"]);
 });
 

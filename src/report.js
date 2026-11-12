@@ -60,7 +60,10 @@ async function checkUrl(address) {
   const blob = await readLimited(response);
   if (run !== current) return;
   if (!blob) return renderMessage(root, "Too large", `provenance-check reads files up to ${mb(MAX_BYTES)}.`);
-  await check(run, blob, nameOf(url), (response.headers.get("content-type") ?? blob.type).split(";")[0], url.host);
+  // The host the copy came from: where the site redirected the request, if it did.
+  let from = url.host;
+  try { if (response.url) from = new URL(response.url).host; } catch { /* keep the requested host */ }
+  await check(run, blob, nameOf(url), (response.headers.get("content-type") ?? blob.type).split(";")[0], from);
 }
 
 /** The body, counting bytes as they come (a size header can be missing or be the compressed size); null past the limit. @param {Response} response */
@@ -104,6 +107,12 @@ async function check(run, blob, name, type, host) {
     if (/UnsupportedType|unsupported/i.test(text)) {
       return renderMessage(root, "This kind of file cannot carry Content Credentials here", `${name} (${type || "unknown type"}) is not a format the C2PA library reads.`, [againButton()]);
     }
+    // Damaged credentials only if there are credentials: a truncated picture or a file with the wrong name says
+    // nothing about Content Credentials.
+    if (!(await carriesC2pa(blob))) {
+      return run === current && renderMessage(root, "Could not read this file", `${name}: the file is incomplete or not what its type says (${clean(text)}). It carries no Content Credentials that could be read.`, [againButton()]);
+    }
+    if (run !== current) return;
     read = { store: null, remoteUrl: null };
     damaged = text;
   }

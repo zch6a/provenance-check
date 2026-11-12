@@ -18,12 +18,14 @@ export const networkAttempts = [];
 blockNetwork(/** @type {any} */ (globalThis), (url) => networkAttempts.push(url));
 
 // The WASM build reads Blobs with FileReaderSync, which browsers have in workers and Node does not. A Blob that
-// keeps its bytes (in data; Blob has a bytes() method of its own) (and so do its slices) lets a small stand-in read them synchronously.
+// keeps a view of its bytes (in `data`: Blob has a bytes() method of its own), as its slices do, lets a small
+// stand-in read them synchronously.
 export class BytesBlob extends Blob {
   /** @param {Uint8Array} bytes @param {string} [type] */
   constructor(bytes, type = "") {
     super([/** @type {BlobPart} */ (bytes)], { type });
-    this.data = Buffer.from(bytes);
+    // A view, not a copy: the Blob already holds one copy of a file that may be 250 MB.
+    this.data = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   }
   /** @param {number} [start] @param {number} [end] @param {string} [type] */
   slice(start = 0, end = this.size, type = "") {
@@ -47,8 +49,13 @@ const pkgDir = require.resolve("@contentauth/c2pa-wasm/package.json").replace(/p
 export const wasm = await import(pathToFileURL(`${pkgDir}pkg/c2pa.js`).href);
 wasm.initSync({ module: readFileSync(`${pkgDir}pkg/c2pa_bg.wasm`) });
 
-/** @param {unknown} e */
-const notFound = (e) => /JumbfNotFound|ManifestNotFound|no.*manifest/i.test(String(e));
+/**
+ * The library's error when a file has no credentials, matched exactly (c2pa-web does the same). A looser match would
+ * also catch other errors whose text merely mentions a manifest: the URL of remote credentials
+ * (cdn.canon.example/manifests/...) made a file with remote credentials read as one with none.
+ * @param {unknown} e
+ */
+const notFound = (e) => /^C2pa\((JumbfNotFound|ManifestNotFound)\)$/.test(String(e));
 
 /**
  * The manifest store of a file, read with the extension's settings; null when it has none. Throws on anything
@@ -74,7 +81,9 @@ export async function readStore(bytesOrPath, type) {
 
 /**
  * What `explain()` needs about a file, the way the extension's report page gets it: the store, or where remote
- * credentials are, or why they are damaged. An unsupported format is an error (`unsupported`).
+ * credentials are, or why they are damaged. Damaged only when the bytes carry a C2PA container: a file the library
+ * cannot parse at all (a truncated PNG, a text file named .gif) is an error (`unreadable`), not damaged credentials.
+ * An unsupported format is an error too (`unsupported`).
  * @param {Uint8Array} bytes @param {string} type
  * @returns {Promise<{store: import("./explain.js").ManifestStore | null, remoteUrl: string | null, damaged: string | null}>}
  */
@@ -89,6 +98,7 @@ export async function readCredentials(bytes, type) {
     if (remoteUrl) return { store: null, remoteUrl, damaged: null };
     const text = String(e instanceof Error ? e.message : e);
     if (/UnsupportedType|unsupported/i.test(text)) throw Object.assign(new Error(text), { unsupported: true });
+    if (!hasC2paMarker(bytes)) throw Object.assign(new Error(text), { unreadable: true });
     return { store: null, remoteUrl: null, damaged: text };
   }
 }

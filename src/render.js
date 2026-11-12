@@ -5,13 +5,22 @@
  */
 
 /**
- * Text from credentials, made safe to read: characters that reorder text (right-to-left overrides and isolates,
- * which can make "holiday\u202Egpj.exe" read as "holidayexe.jpg") are shown as "\uFFFD", and very long text is cut.
+ * Characters that change how text reads without being seen: those that reorder it (right-to-left overrides and
+ * isolates, which can make "holiday\u202Egpj.exe" read as "holidayexe.jpg"), invisible ones that make look-alikes
+ * ("pay\u200Bpal"), line and paragraph separators, and Unicode tag characters (hidden text). Joiners (U+200C, U+200D)
+ * stay: scripts and emoji need them.
+ */
+const HIDDEN = /[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C\u200B\u2060-\u2064\uFEFF\u2028\u2029\u{E0000}-\u{E007F}]/gu;
+const MAX = 400;
+
+/**
+ * Text from credentials, made safe to read: the characters above are shown as "\uFFFD", and very long text is cut
+ * (on whole characters, so an emoji at the cut does not leave half of itself).
  * @param {string} text
  */
 export function clean(text) {
-  const s = String(text).replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/g, "\uFFFD");
-  return s.length > 400 ? `${s.slice(0, 400)}… (${s.length - 400} more characters)` : s;
+  const chars = [...String(text).replace(HIDDEN, "\uFFFD")];
+  return chars.length > MAX ? `${chars.slice(0, MAX).join("")}… (${chars.length - MAX} more characters)` : chars.join("");
 }
 
 /** @param {string} tag @param {string} [className] @param {string} [text] */

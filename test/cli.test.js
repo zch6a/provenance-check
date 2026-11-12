@@ -62,10 +62,10 @@ test("text from credentials cannot drive the terminal or reorder what is read", 
   assert.match(out, /<img src=x/, "HTML is shown as the text it is");
   const report = /** @type {import("../src/explain.js").Report} */ ({
     verdict: "valid", headline: "signed by \u001b[31mBank\u001b[0m", summary: "s", ai: null, actions: [], history: [], problems: [],
-    facts: [{ label: "Title", value: "holiday‮gpj.exe\u0007\nNext line" }], notes: [], technical: { state: "Valid", codes: [] },
+    facts: [{ label: "Title", value: "holiday\u202Egpj.exe\u0007\nNext line" }], notes: [], technical: { state: "Valid", codes: [] },
   });
   const text = reportText(report, "file\u001b]0;title\u0007.jpg");
-  assert.doesNotMatch(text, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f‪-‮]/, "no escape, bell or bidi control is printed");
+  assert.doesNotMatch(text, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u202A-\u202E]/, "no escape, bell or bidi control is printed");
   assert.match(text, /holiday�gpj\.exe� Next line/);
 });
 

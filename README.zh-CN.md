@@ -32,13 +32,13 @@
 
 - 在网页上右键一张图片（或视频、音频），选 **Check Content Credentials**，报告会在新标签页打开。第一次检查某个网站的图片时，浏览器会请你允许 provenance-check 从这个网站（或所有网站）获取图片。
 - 检查电脑上的文件：点工具栏图标，再点 **Check a file…**，把文件拖进去。
-- 命令行（Node 18 或更新版本）：同一个读取器、同一份报告，纯文本或 `--json`：
+- 命令行（Node 18.3 或更新版本）：同一个读取器、同一份报告，纯文本或 `--json`：
 
   ```bash
   npx -y github:zch6a/provenance-check photo.jpg
   ```
 
-  只读本地文件，可以一次检查多个。退出码：0 检查完成，1 有文件的凭证与文件不符，2 有文件无法检查。
+  只读本地文件，可以一次检查多个。退出码：0 检查完成，1 有文件的凭证与文件不符，2 有文件无法检查（2 优先于 1；`--json` 里有每个文件各自的结果）。
 
 ## 直接问 AI 助手
 
@@ -53,7 +53,7 @@ provenance-check 自带一个 Agent Skill（技能）。在 Claude Code 里：
 
 ## 安装
 
-还没有上架 Chrome 应用商店。从源码安装（需要 Node 18 或更新版本）：
+还没有上架 Chrome 应用商店。从源码安装（需要 Node 18.3 或更新版本）：
 
 ```bash
 git clone https://github.com/zch6a/provenance-check
@@ -67,7 +67,7 @@ npm run build
 ## 隐私是设计出来的
 
 - 图片在**你的电脑上**读取，用的是扩展里自带的 C2PA 官方参考实现（[c2pa-rs](https://github.com/contentauth/c2pa-rs)，编译成 WebAssembly）。不上传、不需要账号、不收集数据。
-- 它唯一发出的请求，是从图片所在的网站**不带你的 cookie** 再下载一次这张图片，而且要你先允许这个网站。检查和显示的就是这份副本（网站可能给不同的访问者不同的文件）。
+- 它唯一发出的请求，是从图片所在的网站**不带你的 cookie** 再下载一次这张图片，而且要你先允许这个网站（如果网站把请求重定向到别处，也会从那里下载；报告会写明这份副本来自哪个主机）。检查和显示的就是这份副本（网站可能给不同的访问者不同的文件）。
 - 读取凭证的 worker **完全不能联网**。有些凭证带有身份声明（CAWG），C2PA 库会自己去查身份声明的签发者，地址由文件的制作者决定——这等于告诉他们谁打开了哪张图。worker 会拒绝扩展以外的任何请求；有一个测试在真实的 Chrome 里读这种文件，同时监视 worker 发出的请求。
 - 文件里只写了一个网址、凭证存放在别处的情况（“远程清单”），它**不会**去取：取了就等于告诉那台服务器你正在看哪张图片。报告会告诉你凭证在哪，由你决定。它也不查询证书吊销状态（OCSP）。有测试检查读取过程中没有任何网络请求。
 - 只申请一个权限（右键菜单）。访问网站图片的权限是可选的，用到时才申请；不在网页里运行任何脚本。
@@ -87,19 +87,21 @@ npm run build
 
 ## 状态
 
-0.3，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
+0.4，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
 
 ## 开发
 
 ```bash
 npm ci
-npm test            # 测试图片的报告、隐私（不发请求）、构建出的扩展
+npm test            # 测试图片的报告、隐私（不发请求）、命令行、构建出的扩展、安装包内容、Agent Skill
 npm run check       # 检查 JavaScript 的类型（JSDoc 类型，tsc）
 npm run build       # 构建到 dist/
 node scripts/serve.mjs   # 在扩展外打开报告页面：http://localhost:5180/dist/report.html?src=/test/fixtures/edited.jpg
 ```
 
 `npm run fixtures` 重新生成测试图片（由 `scripts/cose.mjs` 签名；这个库的 WebAssembly 版本要求签名器返回完整的 COSE 签名）。`scripts/screenshot.mjs` 生成上面的截图。
+
+怎样参与开发（以及哪些原则不能改）：[CONTRIBUTING.md](CONTRIBUTING.md)（英文）。威胁模型和如何报告漏洞：[SECURITY.md](SECURITY.md)（英文）。
 
 ## 许可证
 

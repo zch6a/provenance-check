@@ -16,11 +16,12 @@ const BY_EXTENSION = /** @type {Record<string, string>} */ ({
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", tif: "image/tiff",
   tiff: "image/tiff", dng: "image/x-adobe-dng", avif: "image/avif", heic: "image/heic", heif: "image/heif",
   svg: "image/svg+xml", mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", m4a: "audio/mp4",
-  mp3: "audio/mpeg", wav: "audio/wav", pdf: "application/pdf",
+  mp3: "audio/mpeg", wav: "audio/wav", avi: "video/x-msvideo", pdf: "application/pdf", c2pa: "application/c2pa",
 });
 
 /**
- * The MIME type of a file from its first bytes, else from its name; "" when neither says.
+ * The MIME type of a file from its first bytes, else from its name; "" when neither says (the library then decides
+ * from the bytes itself: it reads the format from them, the type is a hint).
  * @param {Uint8Array} head the first bytes (16 are enough)
  * @param {string} [name]
  */
@@ -31,6 +32,7 @@ export function sniffType(head, name = "") {
   if (is(b, 0, "GIF8")) return "image/gif";
   if (is(b, 0, "RIFF") && is(b, 8, "WEBP")) return "image/webp";
   if (is(b, 0, "RIFF") && is(b, 8, "WAVE")) return "audio/wav";
+  if (is(b, 0, "RIFF") && is(b, 8, "AVI ")) return "video/x-msvideo";
   if (is(b, 0, "%PDF")) return "application/pdf";
   if (is(b, 0, "ID3") || (b[0] === 0xff && ((b[1] ?? 0) & 0xe0) === 0xe0)) return "audio/mpeg"; // an MPEG frame sync (JPEG's FF D8 is not one)
   const ext = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "";
