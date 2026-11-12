@@ -79,6 +79,22 @@ try {
   }
   /** @param {string} sessionId @param {string} expression */
   const evaluate = async (sessionId, expression) => (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }, sessionId)).result?.value;
+  /** Waits until the page has loaded and has its file input (slow machines need longer than a fixed pause). @param {string} sessionId */
+  async function ready(sessionId) {
+    for (let i = 0; i < 150; i++) {
+      if (await evaluate(sessionId, "document.readyState === 'complete' && document.getElementById('file') !== null").catch(() => false)) return;
+      await sleep(100);
+    }
+    throw new Error("the page did not load");
+  }
+  /** Picks a file in the page's file input, as a person would. @param {string} sessionId @param {string} file */
+  async function pick(sessionId, file) {
+    await ready(sessionId);
+    await send("DOM.enable", {}, sessionId);
+    const { root } = await send("DOM.getDocument", {}, sessionId);
+    const { nodeId } = await send("DOM.querySelector", { nodeId: root.nodeId, selector: "#file" }, sessionId);
+    await send("DOM.setFileInputFiles", { nodeId, files: [file] }, sessionId);
+  }
   /** Waits until the report (or a message) is on the page; returns its text. @param {string} sessionId */
   async function reportText(sessionId) {
     for (let i = 0; i < 100; i++) {
@@ -91,11 +107,7 @@ try {
 
   // 1. A file from this computer, through the picker: the whole reading path, no network.
   const page = await open(`chrome-extension://${ext}/report.html`);
-  await sleep(500);
-  await send("DOM.enable", {}, page.sessionId);
-  const { root } = await send("DOM.getDocument", {}, page.sessionId);
-  const { nodeId } = await send("DOM.querySelector", { nodeId: root.nodeId, selector: "#file" }, page.sessionId);
-  await send("DOM.setFileInputFiles", { nodeId, files: [join(fx, "edited.jpg")] }, page.sessionId);
+  await pick(page.sessionId, join(fx, "edited.jpg"));
   let text = await reportText(page.sessionId);
   check(/Content Credentials intact/.test(text) && /edited from camera\.jpg/.test(text), "a local file is read in the extension (packaged worker and WASM under its CSP)");
 
@@ -114,11 +126,7 @@ try {
   // attached as it starts, and every request it begins is recorded; the network guard refuses before any begins.
   const p5 = await open(`chrome-extension://${ext}/report.html`);
   await send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }, p5.sessionId);
-  await sleep(300);
-  await send("DOM.enable", {}, p5.sessionId);
-  const doc5 = await send("DOM.getDocument", {}, p5.sessionId);
-  const input5 = await send("DOM.querySelector", { nodeId: doc5.root.nodeId, selector: "#file" }, p5.sessionId);
-  await send("DOM.setFileInputFiles", { nodeId: input5.nodeId, files: [join(fx, "identity-did-web.jpg")] }, p5.sessionId);
+  await pick(p5.sessionId, join(fx, "identity-did-web.jpg"));
   text = await reportText(p5.sessionId);
   const outside = workerRequests.filter((u) => !u.startsWith("chrome-extension:") && !u.startsWith("blob:") && !u.startsWith("data:"));
   check(/Content Credentials intact/.test(text) && /Identity statement/.test(text), "an identity statement from a did:web issuer: intact, said so");
@@ -126,8 +134,9 @@ try {
 
   // 5. The popup and the background service worker.
   const p4 = await open(`chrome-extension://${ext}/popup.html`);
-  await sleep(300);
-  check(await evaluate(p4.sessionId, "document.getElementById('open') !== null"), "the popup opens");
+  let popup = false;
+  for (let i = 0; i < 50 && !popup; i++) { popup = await evaluate(p4.sessionId, "document.getElementById('open') !== null"); if (!popup) await sleep(100); }
+  check(popup, "the popup opens");
   const { targetInfos } = await send("Target.getTargets");
   check(targetInfos.some((/** @type {{type: string, url: string}} */ t) => t.type === "service_worker" && t.url.includes(ext)), "the background service worker runs");
 } catch (e) {
