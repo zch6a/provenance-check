@@ -21,6 +21,13 @@
   "bin": {
     "provenance-check": "src/cli.js"
   },
+  "files": [
+    "src",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
