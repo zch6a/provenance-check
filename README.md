@@ -41,6 +41,45 @@ editors and AI image generators can attach to a file. provenance-check reads the
   opens in a new tab. The first time for a site, the browser asks you to let provenance-check fetch images from
   it (or from all sites).
 - To check a file on your computer, click the toolbar icon, then **Check a file…**, and drop the file in.
+- On the command line (Node 18 or later), the same reader and the same report, in plain text or `--json`:
+
+  ```bash
+  npx -y github:zch6a/provenance-check photo.jpg
+  ```
+
+  For the test image that was changed after it was signed (`test/fixtures/tampered.jpg`), shortened:
+
+  ```text
+  ✗ These Content Credentials do not match this file
+    tampered.jpg
+    Something changed after the credentials were signed, or the signature itself is wrong. ...
+
+  What the credentials claim (not reliable for this file):
+    Signed by: Example Test Studio (not trusted)
+    ...
+    Source: a camera (digital capture)
+
+  What is wrong:
+    ✗ The picture changed after it was signed.
+  ```
+
+  Local files only, several at once. Exit code 0 when checked, 1 when a file's credentials do not match it, 2 when
+  a file could not be checked.
+
+## Ask your AI assistant
+
+provenance-check comes with an Agent Skill. In Claude Code:
+
+```text
+/plugin marketplace add zch6a/provenance-check
+/plugin install provenance-check@provenance-check
+```
+
+Then ask "is this image AI-generated?" or "where does this photo come from?". The assistant checks the file's
+Content Credentials and answers from them, honestly: a signer that is not verified is a name, not a fact; no
+credentials says nothing either way; and it will not guess "AI or not" from how an image looks. Assistants that
+read Agent Skills from a folder: copy [`plugin/skills/provenance-check`](plugin/skills/provenance-check/SKILL.md)
+into theirs.
 
 ## Install
 
@@ -99,7 +138,7 @@ open-source code base they can read: MIT, a few hundred lines on top of the refe
 
 ## Status
 
-0.2, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
+0.3, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
 certificate (`test/fixtures`, made by `scripts/make-fixtures.mjs`): an AI-generated image, a camera image, an
 edit with its history, a tampered copy, one without credentials, one with credentials stored elsewhere, one with
 HTML in its texts, two with identity statements. The built extension is also loaded into a real Chrome (a fresh

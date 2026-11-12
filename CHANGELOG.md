@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — 2026-11-12
+
+- **A command line**: `npx -y github:zch6a/provenance-check photo.jpg` (or `--json`). The same reader, settings,
+  network guard and report as the extension, in plain text; local files only, several at once; exit code 0 checked,
+  1 credentials that do not match, 2 a file that could not be checked. Text from credentials is made safe for a
+  terminal too: escape sequences and other control characters, and characters that reorder text, are shown as "�".
+- **An Agent Skill and a Claude Code plugin** (`/plugin marketplace add zch6a/provenance-check`): ask the assistant
+  whether an image is AI-generated or where it comes from; it reads the credentials and explains each verdict with
+  what it does not prove. A test runs every command the skill gives on the test images.
+- The file's format is read from its bytes when the browser or the server gives none (or `application/octet-stream`),
+  so such a file is no longer refused.
+
 ## 0.2.0 — 2026-11-12
 
 Polishing round 1: an independent review found 15 problems, and loading the real extension into Chrome found one

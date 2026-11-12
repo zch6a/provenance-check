@@ -1,0 +1,12 @@
+{
+  "name": "provenance-check",
+  "description": "provenance-check for Claude Code: what an image's Content Credentials say, read locally.",
+  "owner": { "name": "zch6a" },
+  "plugins": [
+    {
+      "name": "provenance-check",
+      "source": "./plugin",
+      "description": "Read an image's Content Credentials (C2PA) locally and explain them, with what they do not prove."
+    }
+  ]
+}

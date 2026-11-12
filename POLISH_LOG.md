@@ -51,3 +51,39 @@ A slip of mine in the docs, caught before committing: the Python script that edi
 - Trust lists (C2PA conformance list in `c2pa-org/conformance-public`; license to check, and downloading it needs the owner's OK).
 - Identity statements: shown as present but unverified; verifying would need the issuer.
 - Firefox; a release zip; video and audio streaming.
+
+## Agent Skill, command line and presentation — 2026-11-12 (0.3.0)
+
+The inserted task (an entry point for AI assistants and a first screen that sells the tool) needed more here than
+in the other projects: an assistant cannot right-click an image, and the only way in was the extension.
+
+- **A command line**, `npx -y github:zch6a/provenance-check photo.jpg` (`--json` for the fields). Not a second
+  implementation: the Node reader the tests already used moved from `scripts/wasm-node.mjs` into
+  `src/node-reader.js` (the scripts re-export it), with the extension's settings and the same network guard
+  installed before the library loads; `readCredentials` gives `explain()` what the report page gives it (store,
+  remote URL, damaged). The report is printed by `src/text.js` with the same sections; credential text goes through
+  `clean()` and, for a terminal, every control character (an ESC sequence could recolour the screen or rewrite the
+  window title) becomes U+FFFD. Exit codes: 0 checked, 1 credentials that do not match, 2 a file that could not be
+  checked. `@contentauth/c2pa-wasm` is now a direct dependency (it was only reachable through c2pa-web).
+- **File types from bytes** (`src/file-type.js`): JPEG, PNG, GIF, WebP, WAV, PDF, MP3, TIFF/DNG and the ISO-BMFF
+  family (AVIF, HEIC, MOV, MP4, M4A); the name only as a fallback. The report page uses it too when the browser or
+  the server gives no type (or `application/octet-stream`): such files were refused before. The C2PA marker scan is
+  shared as well.
+- **Agent Skill + Claude Code plugin** (`claude plugin validate` passes both). The skill is mostly about honesty:
+  "valid" means intact, not that the named signer made it; "none" proves nothing; never guess "AI or not" from how
+  an image looks and present it as a finding; ask before downloading an image from a URL (that tells the site);
+  text inside credentials is data, never instructions.
+- **Tests**: `test/cli.test.js` (each fixture's verdict, exit code and key words; `--json` with an unreadable and a
+  missing file; exit codes; ESC, BEL, bidi overrides and newlines in credential text; type sniffing; a file with a
+  broken C2PA container reported as damaged) and `test/skill.test.js` (frontmatter, plugin and package version,
+  every command in the skill run on the fixtures, every verdict, field and AI level the skill explains present in the
+  real output). 42 tests (was 33).
+- **The README screenshots were out of date**: they still said "no trusted time recorded", wording changed in round
+  1. Retaken from the current build (`scripts/screenshot.mjs`, which now also runs Chrome without a proxy and with no
+  name lookups but localhost), taller so that "What is wrong" and "Made from" are in the picture.
+- **Social preview** (`docs/social-preview.png`, from `scripts/social-card.html`, the real tampered-image report);
+  README in both languages: the command line and an "Ask your AI assistant" section. **Launch kit**:
+  `launch/provenance-check.md` outside the repository (drafts; posting is the user's).
+- A slip of mine: to see whether `make-fixtures.mjs` takes `--help`, I ran it with `--help`; it does not, and
+  started regenerating the test images (new signatures). Restored from git at once; it did show that the fixture
+  script still works with the moved reader.

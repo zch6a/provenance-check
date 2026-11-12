@@ -32,6 +32,24 @@
 
 - 在网页上右键一张图片（或视频、音频），选 **Check Content Credentials**，报告会在新标签页打开。第一次检查某个网站的图片时，浏览器会请你允许 provenance-check 从这个网站（或所有网站）获取图片。
 - 检查电脑上的文件：点工具栏图标，再点 **Check a file…**，把文件拖进去。
+- 命令行（Node 18 或更新版本）：同一个读取器、同一份报告，纯文本或 `--json`：
+
+  ```bash
+  npx -y github:zch6a/provenance-check photo.jpg
+  ```
+
+  只读本地文件，可以一次检查多个。退出码：0 检查完成，1 有文件的凭证与文件不符，2 有文件无法检查。
+
+## 直接问 AI 助手
+
+provenance-check 自带一个 Agent Skill（技能）。在 Claude Code 里：
+
+```text
+/plugin marketplace add zch6a/provenance-check
+/plugin install provenance-check@provenance-check
+```
+
+然后问它“这张图是 AI 生成的吗？”或者“这张照片是从哪来的？”。助手会检查文件的内容凭证，并据此如实回答：未经验证的签名者只是一个名字，不是事实；没有凭证什么也说明不了；它也不会凭图片“看起来像”去猜是不是 AI 做的。从文件夹读取技能的其他助手：把 [`plugin/skills/provenance-check`](plugin/skills/provenance-check/SKILL.md) 复制到它们的技能文件夹。
 
 ## 安装
 
@@ -69,7 +87,7 @@ npm run build
 
 ## 状态
 
-0.2，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
+0.3，开发中（[更新记录](CHANGELOG.md)）。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的、两张带身份声明的。构建出的扩展还会装进真实的 Chrome（全新的配置目录、不联网）做端到端检查：本地文件、`data:` 图片、权限询问、弹窗，以及读取凭证的 worker 没有发出任何请求。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
 
 ## 开发
 

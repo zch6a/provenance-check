@@ -11,7 +11,8 @@ const chrome = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/usr/b
 if (!chrome) throw new Error("Chrome not found");
 const profile = mkdtempSync(join(tmpdir(), "pc-shot-"));
 const port = 9333;
-const proc = spawn(chrome, ["--headless=new", "--disable-gpu", "--hide-scrollbars", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${w},${h}`, "about:blank"], { stdio: "ignore" });
+// No proxy and no name lookups except the local dev server: the page must not reach anything else.
+const proc = spawn(chrome, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-proxy-server", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${w},${h}`, "about:blank"], { stdio: "ignore" });
 
 try {
   let target;

@@ -6,6 +6,7 @@
  */
 import { readCredentials } from "./c2pa.js";
 import { explain } from "./explain.js";
+import { hasC2paMarker, sniffType } from "./file-type.js";
 import { clean, renderMessage, renderReport } from "./render.js";
 
 const MAX_BYTES = 250 * 1024 * 1024;
@@ -89,6 +90,9 @@ function nameOf(url) {
 /** @param {number} run @param {Blob} blob @param {string} name @param {string} type @param {string | null} host where it was fetched from */
 async function check(run, blob, name, type, host) {
   renderMessage(root, "Checking…", name);
+  // A file the browser has no type for (a .heic on Windows, a server that says application/octet-stream): from its bytes.
+  if (!type || type === "application/octet-stream") type = sniffType(new Uint8Array(await blob.slice(0, 16).arrayBuffer()), name) || type;
+  if (run !== current) return;
   let read;
   /** @type {string | null} */
   let damaged = null;
@@ -122,16 +126,7 @@ async function check(run, blob, name, type, host) {
 async function carriesC2pa(blob) {
   const LIMIT = 32 * 1024 * 1024;
   const parts = blob.size <= 2 * LIMIT ? [blob] : [blob.slice(0, LIMIT), blob.slice(blob.size - LIMIT)];
-  for (const part of parts) {
-    const bytes = new Uint8Array(await part.arrayBuffer());
-    for (let i = 0; i + 8 < bytes.length; i++) {
-      if (bytes[i] === 0x6a && bytes[i + 1] === 0x75 && bytes[i + 2] === 0x6d && bytes[i + 3] === 0x64) { // "jumd"
-        for (let j = i + 4; j < Math.min(i + 48, bytes.length - 4); j++) {
-          if (bytes[j] === 0x63 && bytes[j + 1] === 0x32 && bytes[j + 2] === 0x70 && bytes[j + 3] === 0x61) return true; // "c2pa"
-        }
-      }
-    }
-  }
+  for (const part of parts) if (hasC2paMarker(new Uint8Array(await part.arrayBuffer()))) return true;
   return false;
 }
 

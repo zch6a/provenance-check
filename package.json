@@ -1,14 +1,29 @@
 {
   "name": "provenance-check",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "A browser extension that checks an image's Content Credentials (C2PA) on your computer: who signed it, with what, whether AI was used, and whether it changed since. Nothing is uploaded.",
-  "keywords": ["c2pa", "content-credentials", "provenance", "browser-extension", "ai-generated", "image-verification"],
+  "description": "Check an image's Content Credentials (C2PA) on your computer: who signed it, with what, whether AI was used, and whether it changed since. A browser extension and a command line. Nothing is uploaded.",
+  "keywords": [
+    "c2pa",
+    "content-credentials",
+    "provenance",
+    "browser-extension",
+    "ai-generated",
+    "image-verification"
+  ],
   "license": "MIT",
   "author": "zch6a",
-  "repository": { "type": "git", "url": "git+https://github.com/zch6a/provenance-check.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zch6a/provenance-check.git"
+  },
   "type": "module",
-  "engines": { "node": ">=18" },
+  "bin": {
+    "provenance-check": "src/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test",
@@ -16,6 +31,7 @@
     "fixtures": "node scripts/make-fixtures.mjs"
   },
   "dependencies": {
+    "@contentauth/c2pa-wasm": "0.13.4",
     "@contentauth/c2pa-web": "0.15.5"
   },
   "devDependencies": {
