@@ -1,6 +1,6 @@
 {
   "name": "provenance-check",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A browser extension that checks an image's Content Credentials (C2PA) on your computer: who signed it, with what, whether AI was used, and whether it changed since. Nothing is uploaded.",
   "keywords": ["c2pa", "content-credentials", "provenance", "browser-extension", "ai-generated", "image-verification"],

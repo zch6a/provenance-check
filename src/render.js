@@ -4,11 +4,21 @@
  * runs with the extension's privileges: text from them is only ever set with textContent, never parsed as HTML.
  */
 
+/**
+ * Text from credentials, made safe to read: characters that reorder text (right-to-left overrides and isolates,
+ * which can make "holiday\u202Egpj.exe" read as "holidayexe.jpg") are shown as "\uFFFD", and very long text is cut.
+ * @param {string} text
+ */
+export function clean(text) {
+  const s = String(text).replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/g, "\uFFFD");
+  return s.length > 400 ? `${s.slice(0, 400)}… (${s.length - 400} more characters)` : s;
+}
+
 /** @param {string} tag @param {string} [className] @param {string} [text] */
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
+  if (text !== undefined) node.textContent = clean(text);
   return node;
 }
 
@@ -36,7 +46,7 @@ export function renderReport(root, report, file) {
   const details = el("div", "details");
   details.append(el("p", "file", file.name));
 
-  if (report.ai) details.append(section("AI", [el("p", `ai ai-${report.ai.level}`, report.ai.words)]));
+  if (report.ai) details.append(section(report.verdict === "invalid" ? "AI (as the credentials claim, not reliable for this file)" : "AI", [el("p", `ai ai-${report.ai.level}`, report.ai.words)]));
   if (report.facts.length) {
     const dl = el("dl", "facts");
     for (const f of report.facts) dl.append(el("dt", "", f.label), el("dd", "", f.value));
@@ -51,6 +61,7 @@ export function renderReport(root, report, file) {
       const li = el("li", "", `${h.how} ${h.title}`);
       li.append(el("span", "muted", h.hasCredentials ? ` · signed by ${h.signer ?? "an unnamed signer"}` : " · no credentials of its own"));
       for (const p of h.problems) li.append(el("div", "problem", p));
+      for (const p of h.recorded) li.append(el("div", "muted", `recorded when it was used: ${p}`));
       return li;
     });
     const ul = el("ul");

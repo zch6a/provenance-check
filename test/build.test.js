@@ -2,14 +2,16 @@
 // The built extension: what it asks for, what it ships, and what its pages may run.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const DIST = join(ROOT, "dist");
-execFileSync(process.execPath, [join(ROOT, "scripts", "build.mjs")], { stdio: "ignore" });
+const DIST = mkdtempSync(join(tmpdir(), "pc-build-test-"));
+execFileSync(process.execPath, [join(ROOT, "scripts", "build.mjs")], { stdio: "ignore", env: { ...process.env, DIST } });
+after(() => rmSync(DIST, { recursive: true, force: true }));
 const manifest = JSON.parse(readFileSync(join(DIST, "manifest.json"), "utf8"));
 
 test("it asks only for the right-click menu; access to a site's images is asked for when needed", () => {
@@ -28,6 +30,14 @@ test("the version follows package.json, and everything the pages load is in the 
   assert.equal(manifest.version, JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version);
   for (const f of ["background.js", "report.html", "report.js", "popup.html", "popup.js", "style.css", "vendor/c2pa_worker.js", "vendor/c2pa_bg.wasm",
     ...Object.values(/** @type {Record<string, string>} */ (manifest.icons))]) assert.ok(existsSync(join(DIST, f)), f);
+});
+
+test("the reader's worker carries the network guard ahead of the library, and the licenses of what is bundled ship along", () => {
+  const worker = readFileSync(join(DIST, "vendor", "c2pa_worker.js"), "utf8");
+  const guard = worker.indexOf("may not use the network");
+  assert.ok(guard >= 0, "the guard is in the worker");
+  const licenses = readFileSync(join(DIST, "THIRD_PARTY_LICENSES.txt"), "utf8");
+  for (const name of ["@contentauth/c2pa-web", "@contentauth/c2pa-wasm", "highgain", "c2pa-rs"]) assert.ok(licenses.includes(name), name);
 });
 
 test("the C2PA library starts its worker from the packaged file (its https-only check accepts the extension's URL)", () => {

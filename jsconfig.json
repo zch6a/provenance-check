@@ -11,5 +11,6 @@
     "types": ["chrome", "node"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*.js"]
+  "include": ["src/**/*.js"],
+  "exclude": ["src/worker.js"]
 }

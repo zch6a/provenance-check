@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 
 import { testSigner } from "./cose.mjs";
+import { icaIdentity, x509Identity } from "./identity.mjs";
 import { BytesBlob, readStore, wasm } from "./wasm-node.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,12 +37,13 @@ function gradientPng(w = 160, h = 100) {
 /**
  * @param {object} manifest @param {string} type @param {Buffer} source @param {{format: string, bytes: Buffer, json: object}[]} [ingredients]
  * @param {string} [remoteUrl] credentials stored at this URL instead of in the file
+ * @param {object[]} [identities] CAWG identity statements to attach
  */
-async function sign(manifest, type, source, ingredients = [], remoteUrl) {
+async function sign(manifest, type, source, ingredients = [], remoteUrl, identities = []) {
   const builder = wasm.WasmBuilder.fromJson(JSON.stringify(manifest));
   if (remoteUrl) { builder.setRemoteUrl(remoteUrl); builder.setNoEmbed(true); }
   for (const ing of ingredients) await builder.addIngredientFromBlob(JSON.stringify(ing.json), ing.format, new BytesBlob(ing.bytes, ing.format));
-  const out = await builder.sign(signer, null, type, new BytesBlob(source, type));
+  const out = await builder.sign(signer, identities, type, new BytesBlob(source, type));
   builder.free();
   return Buffer.from(out);
 }
@@ -85,6 +87,22 @@ cases["remote-credentials.jpg"] = await sign({
   claim_generator_info: generator("Example Camera Firmware"), title: "landscape.jpg",
   assertions: [{ label: "c2pa.actions", data: { actions: [{ action: "c2pa.created", digitalSourceType: `${IPTC}digitalCapture` }] } }],
 }, "image/jpeg", landscape, [], "https://credentials.example.invalid/landscape.c2pa");
+
+// A CAWG identity statement signed with the test certificate: intact, its issuer just not on a trust list.
+const camera = (/** @type {string} */ title) => ({
+  claim_generator_info: generator("Example Camera Firmware"), title,
+  assertions: [{ label: "c2pa.actions", data: { actions: [{ action: "c2pa.created", digitalSourceType: `${IPTC}digitalCapture` }] } }],
+});
+cases["identity-x509.jpg"] = await sign(camera("landscape, with an identity statement"), "image/jpeg", landscape, [], undefined, [x509Identity(join(fx, "certs"))]);
+// An identity statement whose issuer is a did:web address with a path unique to this image: resolving it would tell
+// that server who looked at which image. The extension must not resolve it.
+cases["identity-did-web.jpg"] = await sign(camera("landscape, identity from a did:web issuer"), "image/jpeg", landscape, [], undefined,
+  [icaIdentity("did:web:tracker.example.invalid:image-4711")]);
+// The IPTC source written with https:// (both spellings are used).
+cases["ai-https-iptc.png"] = await sign({
+  claim_generator_info: generator("Example Image Generator"), title: "A gradient, generated",
+  assertions: [{ label: "c2pa.actions", data: { actions: [{ action: "c2pa.created", digitalSourceType: `${IPTC.replace("http:", "https:")}trainedAlgorithmicMedia` }] } }],
+}, "image/png", png);
 
 for (const [name, bytes] of Object.entries(cases)) {
   writeFileSync(join(fx, name), bytes);

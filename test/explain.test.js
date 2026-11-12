@@ -32,7 +32,7 @@ test("an AI-generated image: intact, signer not verified, and the AI statement i
   assert.equal(fact(r, "Made with"), "Example Image Generator 1.0");
   assert.equal(fact(r, "Source"), "generative AI");
   assert.deepEqual(r.actions, ["created (Example Image Model)"]);
-  assert.equal(fact(r, "Signed on"), "no trusted time recorded");
+  assert.equal(fact(r, "Signed on"), "no timestamp recorded");
   assert.ok(r.notes.some((n) => /do not prove/.test(n)));
   assert.ok(r.notes.some((n) => /trust list/.test(n)));
   assert.deepEqual(r.problems, []);
@@ -51,7 +51,7 @@ test("an edited image: what was done, and what it was made from", async () => {
   assert.equal(r.verdict, "valid");
   assert.deepEqual(r.actions, ["opened an existing file", "adjusted colours", "cropped"]);
   assert.equal(r.history.length, 1);
-  assert.deepEqual(r.history[0], { title: "camera.jpg", how: "edited from", signer: "Example Test Studio (not trusted)", hasCredentials: true, problems: [] });
+  assert.deepEqual(r.history[0], { title: "camera.jpg", how: "edited from", signer: "Example Test Studio (not trusted)", hasCredentials: true, problems: [], recorded: [] });
   assert.equal(fact(r, "Made with"), "Example Photo Editor 1.0");
 });
 
@@ -96,7 +96,7 @@ test("trust, expiry, revocation and AI edits, from the library's own result shap
   const trusted = explain(base({ validation_state: "Trusted" }));
   assert.equal(trusted.verdict, "trusted");
   assert.equal(trusted.headline, 'Content Credentials signed by "News Org"');
-  assert.equal(fact(trusted, "Signed on"), "2026-03-04 05:06:07 UTC");
+  assert.equal(fact(trusted, "Signed on"), "2026-03-04 05:06:07 UTC (from a timestamp whose authority is not verified)");
   assert.equal(trusted.ai?.level, "partly");
   assert.deepEqual(trusted.actions, ["opened an existing file", "edited with generative AI"]);
   assert.ok(!trusted.notes.some((n) => /trust list/.test(n)));
@@ -119,4 +119,86 @@ test("made from an AI-generated file: said, even though this step did not use AI
   assert.equal(r.ai?.level, "partly");
   assert.match(r.ai?.words ?? "", /made from a file whose credentials state it was AI-generated/);
   assert.equal(r.headline, "Content Credentials intact, signed by an unnamed signer (signer not verified)");
+});
+
+test("an identity statement whose issuer is not on a trust list: intact, not 'tampered'", async () => {
+  const r = await reportFor("identity-x509.jpg");
+  assert.equal(r.verdict, "valid");
+  assert.deepEqual(r.problems, []);
+  assert.equal(fact(r, "Identity statement"), "attached (CAWG), not verified against a trust list");
+  assert.ok(r.notes.some((n) => /does not contact its issuer/.test(n)));
+});
+
+test("an identity statement from a did:web issuer that is not contacted: intact, and said so", async () => {
+  const r = await reportFor("identity-did-web.jpg");
+  assert.equal(r.verdict, "valid", "the library's 'Invalid' comes only from the unreachable issuer");
+  assert.deepEqual(r.problems, []);
+  assert.equal(fact(r, "Identity statement"), "attached (CAWG), not verified against a trust list");
+});
+
+test("the IPTC source written with https:// is still generative AI", async () => {
+  const r = await reportFor("ai-https-iptc.png");
+  assert.equal(r.ai?.level, "generated");
+  assert.equal(fact(r, "Source"), "generative AI");
+});
+
+/** A one-manifest store with these actions and results. @param {object[]} actions @param {object} [extra] */
+const store = (actions, extra = {}) => ({
+  active_manifest: "m", validation_state: "Valid",
+  manifests: { m: { signature_info: { common_name: "Signer" }, assertions: [{ label: "c2pa.actions.v2", data: { actions } }] } },
+  ...extra,
+});
+
+test("only trained algorithms are generative AI: an algorithmic filter and synthetic elements are not", () => {
+  const filter = explain(store([{ action: "c2pa.created", digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture" },
+    { action: "c2pa.filtered", digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/algorithmicMedia", softwareAgent: "Classic sharpen" }]));
+  assert.equal(filter.ai?.level, "not-stated");
+  assert.deepEqual(filter.actions, ["created", "applied a filter (Classic sharpen)"]);
+  const algorithmic = explain(store([{ action: "c2pa.created", digitalSourceType: "https://cv.iptc.org/newscodes/digitalsourcetype/algorithmicMedia" }]));
+  assert.equal(algorithmic.ai?.level, "not-stated");
+  assert.match(fact(algorithmic, "Source") ?? "", /not generative AI/);
+  const synthetic = explain(store([{ action: "c2pa.created", digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/compositeSynthetic" }]));
+  assert.equal(synthetic.ai?.level, "not-stated");
+  assert.match(fact(synthetic, "Source") ?? "", /not necessarily AI/);
+});
+
+test("a custom action is shown as its label, not as a sentence", () => {
+  const r = explain(store([{ action: "com.example.verified_by_c2pa_trust_list" }]));
+  assert.deepEqual(r.actions, ['"com.example.verified_by_c2pa_trust_list" (a custom action, not defined by C2PA)']);
+});
+
+test("informational results never make a file 'invalid'; a trusted timestamp is said to be trusted", () => {
+  const r = explain(store([], {
+    validation_results: { activeManifest: { success: [{ code: "timeStamp.trusted" }], informational: [{ code: "something.informational" }], failure: [] } },
+    manifests: { m: { signature_info: { common_name: "Signer", time: "2026-01-02T03:04:05Z" }, assertions: [] } },
+  }));
+  assert.equal(r.verdict, "valid");
+  assert.equal(fact(r, "Signed on"), "2026-01-02 03:04:05 UTC (trusted timestamp)");
+});
+
+test("ingredient problems: what the reader found, apart from what the editing tool recorded", () => {
+  const r = explain({
+    active_manifest: "edit", validation_state: "Valid",
+    manifests: {
+      edit: { assertions: [], ingredients: [{ title: "photo.jpg", relationship: "parentOf", active_manifest: "orig", label: "c2pa.ingredient.v3",
+        validation_results: { activeManifest: { failure: [{ code: "x.recorded", explanation: "Verified by Reuters: original photo" }] } } }] },
+      orig: { signature_info: { common_name: "Camera" }, assertions: [] },
+    },
+    validation_results: { activeManifest: { failure: [] }, ingredientDeltas: [{ uri: "self#jumbf=/c2pa/edit/c2pa.assertions/c2pa.ingredient.v3",
+      validationDeltas: { failure: [{ code: "assertion.dataHash.mismatch" }] } }] },
+  });
+  assert.deepEqual(r.history[0].problems, ["The picture changed after it was signed."]);
+  assert.deepEqual(r.history[0].recorded, ["Verified by Reuters: original photo"]);
+});
+
+test("damaged credentials are not 'no credentials'", () => {
+  const r = explain(null, { damaged: "C2pa(ClaimDecoding)" });
+  assert.equal(r.verdict, "invalid");
+  assert.equal(r.headline, "This file's Content Credentials are damaged");
+  assert.equal(r.technical.codes[0].explanation, "C2pa(ClaimDecoding)");
+});
+
+test("a downloaded copy says where it came from", () => {
+  const r = explain(store([{ action: "c2pa.created" }]), { fetchedFrom: "images.example.invalid" });
+  assert.ok(r.notes.some((n) => /copy downloaded from images\.example\.invalid/.test(n)));
 });

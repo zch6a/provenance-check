@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
+import { blockNetwork } from "../src/network-guard.js";
 import { READ_SETTINGS_JSON } from "../src/settings.js";
+
+// The same guard as in the extension's reader worker: nothing leaves this process while test images are read, and
+// what the library tried to fetch is noted here (the privacy tests look at it).
+/** @type {string[]} */
+export const networkAttempts = [];
+blockNetwork(/** @type {any} */ (globalThis), (url) => networkAttempts.push(url));
 
 // The WASM build reads Blobs with FileReaderSync, which browsers have in workers and Node does not. A Blob that
 // keeps its bytes (and so do its slices) lets a small stand-in read them synchronously.
