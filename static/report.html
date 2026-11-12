@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>provenance-check</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="top"><span class="mark">provenance-check</span> <span class="muted">Content Credentials, read on this computer</span></header>
+    <section id="picker" class="picker" hidden>
+      <h1>Check a file</h1>
+      <p>Drop an image, video or audio file here, or choose one. It is read here and not uploaded anywhere.</p>
+      <label class="button">Choose a file<input id="file" type="file" hidden></label>
+      <p class="muted">On a web page, right-click an image and choose “Check Content Credentials”.</p>
+    </section>
+    <div id="report" aria-live="polite"></div>
+  </main>
+  <script type="module" src="report.js"></script>
+</body>
+</html>

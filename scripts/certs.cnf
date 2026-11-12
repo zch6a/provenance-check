@@ -1,0 +1,22 @@
+# OpenSSL settings for the TEST-ONLY certificates in test/fixtures/certs (see scripts/make-certs.mjs).
+# They follow the C2PA certificate profile so that the reference library accepts the signatures, and they
+# are on no trust list: everything signed with them shows as "signer not on a trust list".
+
+[ req ]
+distinguished_name = dn
+prompt = no
+
+[ dn ]
+CN = provenance-check test CA (not trusted)
+
+[ ca_ext ]
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier = hash
+
+[ signer_ext ]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = emailProtection
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always

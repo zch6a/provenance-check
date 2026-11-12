@@ -1,0 +1,87 @@
+<div align="center">
+
+# provenance-check
+
+**右键一张图片，看看它的内容凭证（Content Credentials）说了什么。** 谁签的名、用什么工具做的、是不是 AI 生成的、做过哪些编辑、签名之后文件有没有被改过——用大白话说清楚，也说清楚这些*不能*证明什么。在你的电脑上用 C2PA 官方参考实现读取，不上传任何东西。
+
+<a href="https://github.com/zch6a/provenance-check/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zch6a/provenance-check/actions/workflows/ci.yml/badge.svg"></a>
+<img alt="Manifest V3" src="https://img.shields.io/badge/Chrome%20%2F%20Edge-Manifest%20V3-2d5bd7">
+<a href="LICENSE"><img alt="MIT 许可证" src="https://img.shields.io/badge/license-MIT-blue"></a>
+
+[English](README.md) · **简体中文**
+
+</div>
+
+---
+
+<img src="docs/report-edited.png" alt="一张编辑过的测试图片的报告：凭证完好，签名者未经验证，做过的编辑，来源文件" width="760">
+
+## 它告诉你什么
+
+[内容凭证](https://contentcredentials.org)（C2PA 标准）是相机、编辑软件、AI 图像生成器可以附加在文件上的签名记录。provenance-check 读取它们并告诉你（报告界面目前是英文的）：
+
+- **签名之后文件有没有变过。** “完好”，或者“凭证与这个文件不符”，以及变了什么（画面、凭证的一部分、签名）。
+- **谁签的名**，以及这个签名者能不能被确认（见下文“信任”）。
+- **有没有用到 AI**——按凭证里的说法：由生成式 AI 制作、用 AI 编辑过、或者由 AI 生成的文件做成；或者凭证对 AI 只字未提。
+- **怎么做出来、怎么改的**：来源（相机、生成式 AI、截图……）、工具、编辑（裁剪、调色……），以及它由哪些文件做成，每个文件各自的签名者。
+- **这些不能证明什么**——每次都会说：凭证记录的是签名者的说法，不能证明画面是真实的。网上大多数图片本来就没有凭证，没有凭证不代表是假的。
+
+<img src="docs/report-tampered.png" alt="一张被篡改的测试图片的报告：凭证与文件不符，签名之后画面被改过" width="760">
+
+## 使用
+
+- 在网页上右键一张图片（或视频、音频），选 **Check Content Credentials**，报告会在新标签页打开。第一次检查某个网站的图片时，浏览器会请你允许 provenance-check 从这个网站（或所有网站）获取图片。
+- 检查电脑上的文件：点工具栏图标，再点 **Check a file…**，把文件拖进去。
+
+## 安装
+
+还没有上架 Chrome 应用商店。从源码安装（需要 Node 18 或更新版本）：
+
+```bash
+git clone https://github.com/zch6a/provenance-check
+cd provenance-check
+npm ci
+npm run build
+```
+
+然后打开 `chrome://extensions`（或 `edge://extensions`），打开 **开发者模式**，选 **加载已解压的扩展程序**，选择 `dist` 文件夹。需要 Chrome 或 Edge 116 及以上。
+
+## 隐私是设计出来的
+
+- 图片在**你的电脑上**读取，用的是扩展里自带的 C2PA 官方参考实现（[c2pa-rs](https://github.com/contentauth/c2pa-rs)，编译成 WebAssembly）。不上传、不需要账号、不收集数据。
+- 它唯一发出的请求，是从页面获取图片的那个网站再取一次这张图片（能用浏览器缓存时就用缓存），而且要你先允许这个网站。
+- 文件里只写了一个网址、凭证存放在别处的情况（“远程清单”），它**不会**去取：取了就等于告诉那台服务器你正在看哪张图片。报告会告诉你凭证在哪，由你决定。它也不查询证书吊销状态（OCSP）。有测试检查读取过程中没有任何网络请求。
+- 只申请一个权限（右键菜单）。访问网站图片的权限是可选的，用到时才申请；不在网页里运行任何脚本。
+- 凭证里的文字（标题、工具名）是文件的制作者写的。报告只把它们当文字显示，绝不当 HTML 解析；有一张标题里带 HTML 的测试图片专门检查这一点。
+
+## 它（暂时）做不到的
+
+- **信任。** 还不会对照 C2PA 信任列表检查签名者，所以所有签名者都显示为“未经验证”：报告告诉你是谁签的名，由你判断这个名字。（谁都可以做一张名叫“某知名通讯社”的证书，信任列表才能分辨真假。）
+- 只读文件里面的内容：不读那些指向别处凭证的隐形水印或指纹。
+- 没有凭证的图片是不是 AI 生成的，它判断不了——目前没有任何可靠的方法能判断。
+- 只存在于网页内部的图片（`blob:` 地址）无法从页面外部获取：把图片保存下来再检查文件。文件最大 250 MB。
+- Firefox：暂不支持（后台脚本的写法不同）。
+
+## 其他工具
+
+也有其他浏览器扩展能读内容凭证，比如“C2PA Content Credentials”、Digimarc 的（开源，基于较早的 C2PA-JS 库）、Adobe 的 Content Authenticity；[contentcredentials.org/verify](https://contentcredentials.org/verify) 可以检查你上传的文件。provenance-check 适合这样的人：希望在本地检查，希望结果用大白话说清楚、也说清楚局限，希望代码少到自己能读完——MIT 许可，在参考实现之上只有几百行。
+
+## 状态
+
+0.1，开发中。测试用的是合成图片，由参考实现用仅供测试的证书签名（`test/fixtures`，由 `scripts/make-fixtures.mjs` 生成）：一张 AI 生成的图片、一张相机拍的、一张带编辑历史的、一张被篡改的、一张没有凭证的、一张凭证存放在别处的、一张文字里带 HTML 的。报告页面在浏览器里用真实的 WebAssembly 读取器检查过。
+
+## 开发
+
+```bash
+npm ci
+npm test            # 测试图片的报告、隐私（不发请求）、构建出的扩展
+npm run check       # 检查 JavaScript 的类型（JSDoc 类型，tsc）
+npm run build       # 构建到 dist/
+node scripts/serve.mjs   # 在扩展外打开报告页面：http://localhost:5180/dist/report.html?src=/test/fixtures/edited.jpg
+```
+
+`npm run fixtures` 重新生成测试图片（由 `scripts/cose.mjs` 签名；这个库的 WebAssembly 版本要求签名器返回完整的 COSE 签名）。`scripts/screenshot.mjs` 生成上面的截图。
+
+## 许可证
+
+[MIT](LICENSE)。打包了 [c2pa-web](https://github.com/contentauth/c2pa-js)（MIT，Adobe），它的许可证保留在构建出的文件里。
