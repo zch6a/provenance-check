@@ -12,13 +12,20 @@ from sites. Both are part of its threat model.
   matters because some credentials make the library contact an address the file's maker chose (the issuer of a CAWG
   identity statement); remote manifests and certificate revocation (OCSP) are turned off in the settings as well.
 - **One fetch, without cookies.** For an image on a web page, the extension downloads it once more from its own
-  site (following that site's redirects; the report names the host the copy came from), without the user's
-  cookies, and only after the user allowed that site (an optional host permission, asked for when needed). No script
-  runs inside web pages.
+  site, without the user's cookies, and only after the user allowed that site (an optional host permission for web
+  sites, asked for when needed; never `file:`). A redirect from that site is followed by the browser, which hands
+  over the response only if the other site allows it or all sites were allowed; the report names the host the copy
+  came from. `data:` images are passed inside the extension, not in an address. No script runs inside web pages, and
+  no web page can send the extension a message.
 - **Hostile text stays text.** Text from credentials is set with `textContent`, never parsed as HTML; characters
   that reorder text (right-to-left overrides and isolates) are shown as U+FFFD; long text is cut. On the command
   line, control characters (terminal escape sequences, bells) are replaced as well, in file names too, and `--json`
   writes C1 controls and invisible characters as `\u` escapes.
+- **A reader failure is not a verdict.** Only the C2PA library's own errors are taken as being about the file; when
+  the reader itself fails (its worker stops, memory runs out), the report says that this is a problem in
+  provenance-check, and the next check starts a new reader.
+- **Releases.** The release zip is built and tested with a read-only token; the job that can write to the
+  repository only uploads that zip. Actions are pinned to commits.
 - **Bounded input.** Files up to 250 MB: refused by their size before they are read, and checked again after
   (a download is counted as it arrives).
 

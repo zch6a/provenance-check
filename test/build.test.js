@@ -17,7 +17,10 @@ const manifest = JSON.parse(readFileSync(join(DIST, "manifest.json"), "utf8"));
 test("it asks only for the right-click menu; access to a site's images is asked for when needed", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions, ["contextMenus"]);
-  assert.deepEqual(manifest.optional_host_permissions, ["<all_urls>"]);
+  // Web sites only: <all_urls> would add file:, which nothing here needs.
+  assert.deepEqual(manifest.optional_host_permissions, ["*://*/*"]);
+  assert.equal(manifest.incognito, "split", "a private window gets its own instance, and the report opens there");
+  assert.equal(manifest.externally_connectable, undefined, "no web page can message the extension");
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts, undefined, "no script runs in web pages");
 });

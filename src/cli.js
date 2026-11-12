@@ -11,12 +11,12 @@
  * ("invalid") and every file was checked; 2 a file could not be checked (missing, unreadable, empty, too large, not a
  * format the library reads) or the usage was wrong. 2 wins over 1: look at each result to see both.
  */
-import { readFileSync, statSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { parseArgs } from "node:util";
 
 import { explain } from "./explain.js";
 import { sniffType } from "./file-type.js";
-import { readCredentials } from "./node-reader.js";
+import { readCredentialsFromFile } from "./node-reader.js";
 import { reportText, safe } from "./text.js";
 
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -48,26 +48,32 @@ const message = (e) => {
  * @returns {Promise<{file: string, type: string, report: import("./explain.js").Report} | {file: string, error: string}>}
  */
 async function check(file) {
-  let bytes;
+  // The file is read where the library asks, not whole (a video's picture data is mostly never touched).
+  let head;
   try {
     const st = statSync(file);
     if (!st.isFile()) return { file, error: "not a file" };
     if (st.size > MAX_BYTES) return { file, error: `larger than ${MAX_BYTES / 1024 / 1024} MB` };
-    bytes = readFileSync(file);
+    if (st.size < 4) return { file, error: st.size ? "too short to be a picture, video or sound file" : "empty file" };
+    const fd = openSync(file, "r");
+    try {
+      head = Buffer.alloc(16);
+      head = head.subarray(0, readSync(fd, head, 0, 16, 0));
+    } finally {
+      closeSync(fd);
+    }
   } catch (e) {
     return { file, error: message(e) };
   }
-  // Again after reading: a file that grew in between is not read past the limit's purpose.
-  if (bytes.length > MAX_BYTES) return { file, error: `larger than ${MAX_BYTES / 1024 / 1024} MB` };
-  if (bytes.length < 4) return { file, error: bytes.length ? "too short to be a picture, video or sound file" : "empty file" };
   // From the bytes, else the name; with neither, the library decides from the bytes itself.
-  const type = sniffType(bytes.subarray(0, 16), file);
+  const type = sniffType(head, file);
   try {
-    const read = await readCredentials(bytes, type);
+    const read = await readCredentialsFromFile(file, type);
     return { file, type: type || "unknown", report: explain(read.store, { remoteUrl: read.remoteUrl, damaged: read.damaged }) };
   } catch (e) {
-    const flags = /** @type {{unsupported?: boolean, unreadable?: boolean}} */ (e);
+    const flags = /** @type {{unsupported?: boolean, unreadable?: boolean, internal?: boolean}} */ (e);
     if (flags.unsupported) return { file, error: `not a format the C2PA library reads${type ? ` (${type})` : ""}` };
+    if (flags.internal) return { file, error: `provenance-check's reader failed (${message(e)}): a problem in provenance-check, not a finding about the file` };
     if (flags.unreadable) return { file, error: `could not read it: the file is incomplete or not what it seems (${message(e)}); it carries no Content Credentials that could be read` };
     return { file, error: message(e) };
   }

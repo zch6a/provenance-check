@@ -169,3 +169,55 @@ and every fix has a test that fails on 0.3.0 (checked by running the new tests w
   parts instead of whole.
 
 **Tests**: 57 (was 51); one runs only on Linux and macOS.
+
+## Round 4 — 2026-11-12 (0.6.0)
+
+Round 2's review covered the command line and the verdicts; this round's independent review covered the extension
+side and the release tooling (no network; the reviewer ran the real `report.js` against a small fake DOM with
+stubbed `fetch`, permissions and reader to reach the error paths, and `npm test` with its offline Chrome). Twelve
+findings; all fixed or answered.
+
+- **High: a failure of the reader read as a verdict.** A stubbed reader throwing `RuntimeError: unreachable` made the
+  intact `camera.jpg` read "This file's Content Credentials are damaged … altered after it was signed"; and
+  `sdk ??= createC2pa(...)` kept a rejected start, so one failure mislabelled every later file in the tab. Only the
+  library's own errors (`C2pa(...)`) are about the file now; anything else says it is a problem in provenance-check,
+  and the reader is started anew (a failed start is not kept). The same rule on the command line (`interpret()`,
+  tested).
+- **High: stuck pages.** A download cut off partway, a folder dropped, or a file that changed after it was picked
+  left "Reading the image…" or "Checking…" for good (unhandled rejections). Rewritten: every check runs through one
+  guarded path that ends on a message with a way on; each check has an AbortController, so a newer one cancels the
+  older download; the permission question checks it is still the newest check (it could replace a newer result).
+- **High: the release workflow handed a write token to dependency and test code** (job-wide `contents: write`, the
+  token kept in `.git/config` by checkout, then `npm ci` with install scripts and `npm test`). Now a build job with a
+  read-only token, `persist-credentials: false` and `npm ci --ignore-scripts` tests, builds and zips; a publish job
+  with write access only downloads that artifact and calls `gh`. Actions pinned to commits (looked up with the
+  GitHub API), CI read-only too. `test/workflows.test.js` keeps it so.
+- **Medium: large `data:` images did nothing**: the image went into `report.html?src=` and, percent-encoded, past
+  Chrome's 2 MB address limit (and every `data:` image was written into the browser history in full). The background
+  script now keeps a `data:` image for a minute and the report page asks for it by a random id over the extension's
+  own messaging (only its report page; no web page can connect). No new permission. An image the menu gives no
+  address for gets a message instead of silence.
+- **Medium: the Chrome test of the worker's requests could pass without watching anything** (Network.enable's reply
+  was not checked, nothing asserted a worker was attached). Now it counts attached and enabled workers, and a
+  **control build** (`PC_UNGUARDED_WORKER=1`, named "TEST CONTROL … do not use") read the same way must be seen
+  trying `https://tracker.example.invalid/image-4711/did.json`. It is: so "no request" in the real build is the
+  guard's doing, and the README can say the test watches.
+- **Medium**: after a per-site grant, a redirect to another site failed with "Failed to fetch": the message now says
+  why and offers "Allow all sites"; the docs say precisely what happens to redirects (README, SECURITY).
+- **Low**: `file:` images went to `fetch` (which cannot read them): now pointed to the file picker; the optional
+  permission `<all_urls>` included `file://`, now `*://*/*`; addresses with a user name and password showed the
+  password in messages: refused without it, and taken out of the tab's address; the tab title and the preview's
+  object URL survived an error; "Too large" had no way on; choosing the same file again did nothing; a server type
+  like `binary/octet-stream` or in capitals got no preview; private windows: `"incognito": "split"` (Chrome's
+  default "spanning" would open the report in a normal window, or fail).
+- **Held up, per the reviewer**: no HTML from untrusted data anywhere; the preview is a `blob:` of the downloaded
+  copy (an SVG in `<img>` runs nothing); no web page can reach the extension; the zip holds exactly the 14 built
+  files, byte-identical after Expand-Archive and tar; no API newer than Chrome 116 in the bundles.
+- **Also this round (mine)**: the command line reads a file where the library asks (`FileBlob`, slices read with
+  `readSync`) instead of whole: the same reports for every fixture (tested), a 150 MB video checked with well under
+  100 MB of memory (tested; the library read 112 bytes of a 200 MB one in the experiment). And the v0.5.0 release
+  zip that GitHub built on Linux has the same SHA-256 as the one built here on Windows.
+- Not done: the hand-off of a `data:` image from a real right-click is not driven in the Chrome test (the context
+  menu cannot be clicked there); the unknown-id path is.
+
+**Tests**: 63 (was 57); one runs only on Linux and macOS.

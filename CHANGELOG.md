@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.6.0 — 2026-11-12
+
+Polishing round 4: an independent review of the extension side found twelve problems. All fixed or answered.
+
+- **A failure of the reader read as a verdict.** Any error from the reader (its worker stopping, memory running
+  out) made an intact file read "This file's Content Credentials are damaged … altered after it was signed", and a
+  reader that failed to start was kept, so every later file in the tab failed the same way. Only the C2PA library's
+  own errors count as being about the file now; anything else says it is a problem in provenance-check, and the next
+  check starts a new reader. The same on the command line.
+- **The page could stay on "Reading the image…" or "Checking…" for good**: a download cut off, a folder dropped
+  instead of a file. Every check now runs through one guarded path and ends on a message with a way on; a newer check
+  cancels the older one's download.
+- **Large `data:` images did nothing**, and every `data:` image was written in full into the tab's address and the
+  browser history: they are handed to the report page inside the extension now. No address from the menu gets a
+  message instead of silence.
+- **The release workflow gave a write token to dependency and test code.** Build and test run with a read-only
+  token and no install scripts; a separate job that runs nothing of the project uploads the tested zip. Both
+  workflows pin their actions to commits; CI is read-only.
+- **The real-Chrome check of the worker's requests could pass without watching**: it now checks that the worker
+  was attached and watched, and a control build without the network guard must be seen trying the did:web issuer.
+- Addresses with a user name and password are refused without showing the password (and it is taken out of the
+  tab's address); `file:` addresses point to the file picker; a redirect to another site after a per-site
+  permission says so and offers "Allow all sites"; the optional permission no longer includes `file:` (`*://*/*`
+  instead of `<all_urls>`); in private windows the extension runs as its own instance ("split").
+- Smaller: the permission question could replace a newer check's result; the tab title and the preview stayed from
+  the previous file after an error; "Too large" had no way on; choosing the same file again did nothing; a server
+  type such as `binary/octet-stream` (or in capitals) got no preview.
+- The command line reads files where the library asks instead of whole: a 150 MB video costs a few hundred bytes of
+  reading, not its size in memory.
+
 ## 0.5.0 — 2026-11-12
 
 Polishing round 3.

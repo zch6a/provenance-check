@@ -46,9 +46,14 @@ await build({
   logLevel: "warning",
   plugins: [workerUrlCheck],
 });
-// The reader's worker: the network guard first, then c2pa-web's worker (src/worker.js).
+// The reader's worker: the network guard first, then c2pa-web's worker (src/worker.js). PC_UNGUARDED_WORKER=1 builds
+// a control for the real-Chrome test only, without the guard, so that the test can show its watch sees the request
+// the guard stops; such a build says so in its name and must never be shipped.
+const unguarded = process.env.PC_UNGUARDED_WORKER === "1";
 await build({
-  entryPoints: [join(root, "src", "worker.js")],
+  ...(unguarded
+    ? { stdin: { contents: 'import "@contentauth/c2pa-web/c2pa_worker";', resolveDir: root, loader: "js" } }
+    : { entryPoints: [join(root, "src", "worker.js")] }),
   outfile: join(dist, "vendor", "c2pa_worker.js"),
   bundle: true,
   format: "esm",
@@ -73,5 +78,6 @@ writeFileSync(join(dist, "THIRD_PARTY_LICENSES.txt"), notices.join(""));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const manifest = JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8"));
 manifest.version = pkg.version;
+if (unguarded) manifest.name = `${manifest.name} (TEST CONTROL: no network guard, do not use)`;
 writeFileSync(join(dist, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
 console.log(`built ${pkg.name} ${pkg.version} into dist/`);

@@ -22,3 +22,16 @@ test("the built extension works in Chrome: local file, data: image, permission q
   }
 });
 
+test("control: without the network guard, the same Chrome check sees the worker try the did:web issuer", { timeout: 180_000 }, (t) => {
+  // Shows that "no request" in the test above comes from the guard, not from a watch that sees nothing.
+  const DIST = mkdtempSync(join(tmpdir(), "pc-e2e-control-"));
+  try {
+    spawnSync(process.execPath, [join(ROOT, "scripts", "build.mjs")], { stdio: "ignore", env: { ...process.env, DIST, PC_UNGUARDED_WORKER: "1" } });
+    const r = spawnSync(process.execPath, [join(ROOT, "scripts", "extension-e2e.mjs")], { encoding: "utf8", timeout: 170_000, env: { ...process.env, DIST, PC_CONTROL: "1" } });
+    if (/^skip:/m.test(r.stdout)) return t.skip("Chrome not found");
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /without the guard, the worker tries the did:web issuer/);
+  } finally {
+    rmSync(DIST, { recursive: true, force: true, maxRetries: 5 });
+  }
+});

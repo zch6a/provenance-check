@@ -17,9 +17,16 @@ export function packaged(path) {
 let sdk = null;
 
 function c2pa() {
-  // workerSrc: extension pages may not start workers from blob: URLs, so the worker is a packaged file.
-  sdk ??= createC2pa({ wasmSrc: packaged("vendor/c2pa_bg.wasm"), workerSrc: new URL(packaged("vendor/c2pa_worker.js")) });
+  // workerSrc: extension pages may not start workers from blob: URLs, so the worker is a packaged file. A start that
+  // fails is not kept: the next check tries again (a kept rejection would fail every later file in this tab).
+  sdk ??= createC2pa({ wasmSrc: packaged("vendor/c2pa_bg.wasm"), workerSrc: new URL(packaged("vendor/c2pa_worker.js")) })
+    .catch((e) => { sdk = null; throw e; });
   return sdk;
+}
+
+/** After the reader failed (its worker stopped, it ran out of memory): the next check starts a new one. */
+export function resetReader() {
+  sdk = null;
 }
 
 /**

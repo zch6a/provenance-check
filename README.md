@@ -102,13 +102,16 @@ and pick the unzipped folder (or `dist`). Chrome and Edge 116 or later.
 - The image is read **on your computer**, by the C2PA reference library ([c2pa-rs](https://github.com/contentauth/c2pa-rs),
   compiled to WebAssembly) that ships inside the extension. Nothing is uploaded, no account, no telemetry.
 - The only request it makes is downloading the image once more, **without your cookies**, from the site it came
-  from (and from where that site redirects the request, if it does: the report names the host the copy came
-  from), and only after you allowed that site. That copy is what is checked and shown (a site can send different
-  visitors different files).
+  from, and only after you allowed that site. If that site redirects the request elsewhere (an image server), the
+  browser follows it, and shows the file only if the other site allows it or you allowed all sites; the report names
+  the host the copy came from. That copy is what is checked and shown (a site can send different visitors different
+  files). An image written into the page itself (`data:`) is read without any request; it is handed to the report
+  page inside the extension, not in the tab's address, so it does not end up in your history.
 - The reader runs in a worker that **cannot reach the network**. Some credentials carry an identity statement
   (CAWG) whose issuer the C2PA library would look up on its own, at an address the file's maker chose: that would
-  tell them who opened which image. The worker refuses any request outside the extension, and a test in a real
-  Chrome watches its requests while it reads such a file.
+  tell them who opened which image. The worker refuses any request outside the extension. A test in a real
+  Chrome watches its requests while it reads such a file, and checks that it really is watching: a control build
+  without the guard, read the same way, is seen trying the issuer's address.
 - It does **not** follow credentials that a file only points to by URL ("remote manifests"): doing so would tell
   that server which image you are looking at. The report says where they are, and leaves the choice to you.
   It does not look up certificate revocation (OCSP) either. Tests check that reading fetches nothing.
@@ -127,8 +130,11 @@ and pick the unzipped folder (or `dist`). Chrome and Edge 116 or later.
   elsewhere. An identity statement (who made it, signed separately) is shown as present but not verified: checking
   it would mean contacting its issuer.
 - It cannot tell whether an image *without* credentials was made by AI. Nothing reliable can.
-- Images that exist only inside a page (`blob:` addresses) cannot be fetched from outside it: save them and
-  check the file. Files up to 250 MB.
+- Images that exist only inside a page (`blob:` addresses), images opened from your disk (`file:`) and addresses
+  with a user name and password are not fetched: save the image (or choose the file) and check the file. Files up
+  to 250 MB.
+- In a private window it runs as a separate instance (Chrome's "split" mode), so the report opens in that window;
+  extensions run there only if you allow it in Chrome's extension settings.
 - Firefox: not yet (it needs a different background script setup).
 
 ## Other tools
@@ -141,7 +147,7 @@ open-source code base they can read: MIT, a few hundred lines on top of the refe
 
 ## Status
 
-0.5, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
+0.6, in development ([changes](CHANGELOG.md)). Tested with synthetic images signed for the tests by the reference library with a test-only
 certificate (`test/fixtures`, made by `scripts/make-fixtures.mjs`): an AI-generated image, a camera image, an
 edit with its history, a tampered copy, one without credentials, one with credentials stored elsewhere, one with
 HTML in its texts, two with identity statements. The built extension is also loaded into a real Chrome (a fresh

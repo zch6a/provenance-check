@@ -2,6 +2,8 @@
 // its report page under the extension's own CSP, the packaged worker and WASM, the file picker, a data: image,
 // and the permission question for a site's image. Needs Chrome; run `npm run build` first.
 // node scripts/extension-e2e.mjs   (exit code 0 when everything held)
+// PC_CONTROL=1 with a build made with PC_UNGUARDED_WORKER=1: only the did:web check, expecting the request the guard
+// would have stopped, which shows that the worker's requests really are watched.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -29,6 +31,11 @@ let id = 0;
 const pageLog = [];
 /** @type {string[]} every request the watched workers started */
 const workerRequests = [];
+/** Workers attached, and how many of them confirmed Network.enable: a watch that is not running proves nothing. */
+const watched = { attached: 0, enabled: 0 };
+/** @type {Set<number>} ids of the Network.enable commands sent to workers */
+const enableIds = new Set();
+const control = process.env.PC_CONTROL === "1";
 /** @type {Map<number, {resolve: (v: any) => void, reject: (e: Error) => void}>} */
 const waiting = new Map();
 let buffer = "";
@@ -40,7 +47,13 @@ fromChrome.on("data", (chunk) => {
     buffer = buffer.slice(end + 1);
     if (msg.method === "Target.attachedToTarget" && msg.params.targetInfo?.type === "worker") {
       // The reader's worker: watch its requests (Network.enable on its own session).
-      toChrome.write(JSON.stringify({ id: ++id, method: "Network.enable", params: {}, sessionId: msg.params.sessionId }) + "\0");
+      watched.attached++;
+      enableIds.add(++id);
+      toChrome.write(JSON.stringify({ id, method: "Network.enable", params: {}, sessionId: msg.params.sessionId }) + "\0");
+    }
+    if (enableIds.has(msg.id)) {
+      enableIds.delete(msg.id);
+      if (!msg.error) watched.enabled++;
     }
     if (msg.method === "Network.requestWillBeSent") workerRequests.push(msg.params.request.url);
     if (msg.method === "Runtime.exceptionThrown") pageLog.push(`exception: ${msg.params.exceptionDetails?.exception?.description ?? msg.params.exceptionDetails?.text}`);
@@ -105,6 +118,19 @@ try {
     return (lastText = `(still waiting) ${await evaluate(sessionId, "document.getElementById('report').innerText")}`);
   }
 
+  if (control) {
+    // The control build (no network guard): the same did:web file must make the worker start a request outside the
+    // extension (it fails: no host name resolves here), so the real test's "none" means something.
+    const pc = await open(`chrome-extension://${ext}/report.html`);
+    await send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }, pc.sessionId);
+    await pick(pc.sessionId, join(fx, "identity-did-web.jpg"));
+    await reportText(pc.sessionId);
+    const seen = workerRequests.filter((u) => !u.startsWith("chrome-extension:") && !u.startsWith("blob:") && !u.startsWith("data:"));
+    check(watched.attached > 0 && watched.enabled === watched.attached, `the reader's worker is attached and watched (${watched.enabled}/${watched.attached})`);
+    check(seen.some((u) => /tracker\.example\.invalid/.test(u)), `without the guard, the worker tries the did:web issuer (saw: ${seen.join(", ") || "none"})`);
+    throw new Error("__control_done__");
+  }
+
   // 1. A file from this computer, through the picker: the whole reading path, no network.
   const page = await open(`chrome-extension://${ext}/report.html`);
   await pick(page.sessionId, join(fx, "edited.jpg"));
@@ -130,9 +156,26 @@ try {
   text = await reportText(p5.sessionId);
   const outside = workerRequests.filter((u) => !u.startsWith("chrome-extension:") && !u.startsWith("blob:") && !u.startsWith("data:"));
   check(/Content Credentials intact/.test(text) && /Identity statement/.test(text), "an identity statement from a did:web issuer: intact, said so");
+  check(watched.attached > 0 && watched.enabled === watched.attached, `the reader's worker is attached and watched (${watched.enabled}/${watched.attached})`);
   check(outside.length === 0, `the reader's worker started no request outside the extension (saw: ${outside.join(", ") || "none"})`);
 
-  // 5. The popup and the background service worker.
+  // 5. Addresses the page must not fetch, each ending in a message with a way on (never stuck on "Reading…").
+  const withPassword = "https://ann:s3cret@images.example.invalid/p.jpg";
+  const p6 = await open(`chrome-extension://${ext}/report.html?src=${encodeURIComponent(withPassword)}`);
+  text = await reportText(p6.sessionId);
+  const address = await evaluate(p6.sessionId, "location.href");
+  check(/user name or password/.test(text) && !/s3cret/.test(text) && !/s3cret/.test(String(address)), "an address with a password: refused, the password neither shown nor kept in the tab's address");
+  const p7 = await open(`chrome-extension://${ext}/report.html?src=${encodeURIComponent("file:///C:/photos/a.jpg")}`);
+  text = await reportText(p7.sessionId);
+  check(/a file on this computer/.test(text), "a file: address: told to choose the file instead");
+  const p8 = await open(`chrome-extension://${ext}/report.html?problem=no-address`);
+  text = await reportText(p8.sessionId);
+  check(/did not pass this image's address/.test(text), "no address from the menu (a very large data: image): said so");
+  const p9 = await open(`chrome-extension://${ext}/report.html?handoff=not-a-real-id`);
+  text = await reportText(p9.sessionId);
+  check(/could not be handed over/.test(text), "a data: image handed over by the background script: an unknown id ends in a message");
+
+  // 6. The popup and the background service worker.
   const p4 = await open(`chrome-extension://${ext}/popup.html`);
   let popup = false;
   for (let i = 0; i < 50 && !popup; i++) { popup = await evaluate(p4.sessionId, "document.getElementById('open') !== null"); if (!popup) await sleep(100); }
@@ -140,8 +183,10 @@ try {
   const { targetInfos } = await send("Target.getTargets");
   check(targetInfos.some((/** @type {{type: string, url: string}} */ t) => t.type === "service_worker" && t.url.includes(ext)), "the background service worker runs");
 } catch (e) {
-  failures.push(String(e));
-  console.log(`FAIL ${e}`);
+  if (String(e) !== "Error: __control_done__") {
+    failures.push(String(e));
+    console.log(`FAIL ${e}`);
+  }
 } finally {
   proc.kill();
   await sleep(800);
