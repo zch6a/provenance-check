@@ -266,3 +266,7 @@ command line (0.3, 42) → 2 review of the reader and the command line (0.4, 51)
 compatibility promise, claims checked (1.0, 66).
 
 Still open: the C2PA trust list; Firefox; identity statements verified (would mean contacting their issuer).
+
+## Lockfile - 2026-11-13
+
+`package-lock.json` recorded the 38 download URLs from this machine's npm mirror (`registry.npmmirror.com`) instead of the public registry, so CI and anyone installing fetched from a mirror they never chose. Every `resolved` URL now points at `registry.npmjs.org`; nothing else changed (same versions, and the integrity hashes still match because the tarballs are identical). Checked: `npm ci --ignore-scripts`, `npm run check` and the tests pass; `npm audit` against the public registry finds 0 vulnerabilities.
